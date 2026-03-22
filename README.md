@@ -1,0 +1,72 @@
+# Leanblueprint Verso Helper
+
+Use this repository as a local submodule inside a Lean project that is porting
+or maintaining a `verso-blueprint` harness.
+
+The helper assumes a faithful TeX-to-Verso workflow: preserve theorem order,
+section order, and dependency edges from the legacy blueprint unless there is a
+clear harness reason not to.
+
+## Add The Helper
+
+```bash
+git submodule add <helper-repo-url> tools/verso-harness
+```
+
+Recommended host-side `AGENTS.md` wiring lives in
+[snippets/AGENTS.host.md](snippets/AGENTS.host.md).
+
+## Main Usage Modes
+
+### 1. Bootstrap An Outer Harness
+
+Use this when the host repo wants a dedicated root blueprint harness that
+depends on an upstream formalization checkout or submodule.
+
+```bash
+python3 tools/verso-harness/scripts/bootstrap.py \
+  --project-root . \
+  --package-name MyProjectBlueprint \
+  --title "My Project Blueprint" \
+  --formalization-name MyProject \
+  --formalization-path "./MyProject"
+```
+
+This seeds:
+
+- `lakefile.lean`
+- `lean-toolchain`
+- `BlueprintMain.lean`
+- a starter blueprint package with `TeXPrelude` and an introduction chapter
+- `scripts/ci-pages.sh`
+- `.github/workflows/blueprint.yml`
+
+The seeded files are intentionally minimal. They are a starting point for
+Codex, not a finished port.
+
+### 2. Maintain An Existing Harness
+
+Use the helper as local policy and refresh the helper-owned CI files with:
+
+```bash
+python3 tools/verso-harness/scripts/update_ci.py --project-root .
+python3 tools/verso-harness/scripts/check_harness.py --project-root .
+```
+
+`update_ci.py` only refreshes the helper-owned CI files. It does not overwrite
+project-owned blueprint modules.
+
+### 3. Manual In-Place Integration
+
+If the host repo already has a root `lakefile.lean` that cannot be replaced,
+use the guidance in:
+
+- [references/layout.md](references/layout.md)
+- [references/porting.md](references/porting.md)
+- [references/maintenance.md](references/maintenance.md)
+
+That path is intentionally doc-guided rather than fully scripted, because
+patching an arbitrary existing `lakefile.lean` is project-specific.
+
+For the detailed chapter-by-chapter workflow and validation rules, see
+`references/porting.md` and `AGENTS.md`.

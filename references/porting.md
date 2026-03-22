@@ -1,0 +1,97 @@
+# Porting
+
+Use this workflow when migrating an existing `leanblueprint` or TeX blueprint to
+Verso.
+
+## 1. Establish The Source Of Truth
+
+- Treat the legacy TeX or `leanblueprint` source as authoritative for the prose
+  structure and dependency story.
+- Preserve section order, labeled theorem order, and mathematical claims unless
+  there is a clear harness or tooling reason not to.
+- Prefer faithful TeX-to-Verso translation over editorial rewriting.
+- Identify where the real Lean declarations live.
+- Treat those modules as authoritative.
+- Prefer `(lean := "...")` links in blueprint nodes instead of duplicating
+  formalized statements in prose modules.
+
+If the target declaration chain does not compile on the chosen toolchain, treat
+that as a deliberate formalization compatibility task rather than papering over
+the problem in the blueprint.
+
+## 2. Choose The Harness Shape
+
+- Use the bootstrap path when the host repo can use a dedicated outer harness at
+  its root.
+- Use the manual path when the host already has a complex root package that must
+  be preserved.
+
+See `[layout.md](layout.md)` before choosing.
+
+## 3. Seed The Harness
+
+For the outer-harness path, run `scripts/bootstrap.py`.
+
+For the in-place path, copy the template ideas manually:
+
+- one root blueprint module
+- one `BlueprintMain.lean`
+- one shared `TeXPrelude.lean`
+- one starter chapter
+- one site-generation smoke test
+- one Pages workflow
+
+## 4. Port Chapter Content Incrementally
+
+- Start with a small chapter or one stable slice of the old blueprint.
+- Work chapter-by-chapter and continue with the next coherent section block if
+  a chapter is only partially ported.
+- Keep shared TeX macros in `TeXPrelude.lean`.
+- Reuse the old macro vocabulary where it helps, but keep the prelude small.
+- Inline math opens with `$`` and closes with a backtick.
+- Display math uses `$$`` ... ``.
+- When the TeX source has a labeled theorem, definition, lemma, corollary, or
+  proof step that still matters to the dependency story, prefer creating a
+  corresponding Verso node rather than burying it in prose.
+- When the TeX source has `\uses{...}`, preserve those edges as
+  `{uses "..."}[]` references inside the relevant node or proof rather than in
+  free prose.
+
+Do not port the whole blueprint in one pass. Edit one module, validate it, then
+continue.
+
+## 5. Attach Real Lean References
+
+When a node corresponds to an existing theorem or definition, add the real
+declaration name with `(lean := "...")`.
+
+Before adding a link:
+
+- confirm the declaration name
+- confirm the import chain is acceptable for the harness
+- prefer the narrowest import that keeps the chapter stable
+
+## 6. Validate Often
+
+Use the Beam-first workflow in `[beam-validation.md](beam-validation.md)`.
+
+In practice:
+
+- save the edited module
+- run one `lean-beam sync` for that module if Beam is available
+- only escalate to `nice lake build blueprint-gen` when needed
+- after a coherent batch, use `bash ./scripts/ci-pages.sh` as the site smoke
+  test
+
+Keep the root build green. If a faithful Lean link would pull in imports that
+are not harness-clean on the current toolchain, leave the chapter informal and
+note the dependency in prose instead of breaking the build.
+
+## 7. Keep Integration And Formalization Work Separate
+
+- Blueprint/harness changes belong in the host root.
+- Wider formalization compatibility fixes belong in the formalization codebase.
+- If the formalization is vendored as a submodule, update that pointer
+  deliberately after compatibility fixes land.
+- Commit coherent validated batches in the host repo instead of mixing unrelated
+  chapter edits together.

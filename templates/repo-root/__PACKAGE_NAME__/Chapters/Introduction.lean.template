@@ -1,0 +1,28 @@
+import Verso
+import VersoManual
+import VersoBlueprint
+
+open Verso.Genre
+open Verso.Genre.Manual
+open Informal
+
+#doc (Manual) "Introduction" =>
+
+:::group "main_story"
+The top-level route through the ported blueprint.
+:::
+
+:::definition "verso_port_scope" (parent := "main_story")
+This chapter is the first landing zone for content migrated from the legacy
+leanblueprint or TeX source. Prefer attaching real declarations with
+`(lean := "...")` rather than copying formalized statements into prose modules.
+:::
+
+:::theorem "first_ported_result" (parent := "main_story")
+Replace this node with the first real result from the legacy blueprint.
+:::
+
+:::proof "first_ported_result"
+Replace this placeholder proof sketch with the corresponding informal argument
+and its real dependency links.
+:::

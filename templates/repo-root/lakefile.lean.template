@@ -1,0 +1,24 @@
+import Lake
+open Lake DSL
+
+require __FORMALIZATION_NAME__ from "__FORMALIZATION_PATH__"
+require verso from git "https://github.com/leanprover/verso.git" @ "__VERSO_REF__"
+require VersoBlueprint from git "https://github.com/ejgallego/verso-blueprint.git" @
+  "__VERSO_BLUEPRINT_REF__"
+
+package __PACKAGE_NAME__ where
+  precompileModules := false
+  leanOptions := #[
+    ⟨`experimental.module, true⟩,
+    ⟨`pp.unicode.fun, true⟩,
+    ⟨`autoImplicit, false⟩,
+    ⟨`relaxedAutoImplicit, false⟩,
+    ⟨`maxSynthPendingDepth, .ofNat 3⟩
+  ]
+
+@[default_target]
+lean_lib __PACKAGE_NAME__ where
+
+lean_exe «blueprint-gen» where
+  root := `BlueprintMain
+  supportInterpreter := true
