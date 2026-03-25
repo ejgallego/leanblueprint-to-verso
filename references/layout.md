@@ -29,16 +29,26 @@ This matches the separation that worked well in `verso-flt`: blueprint and CI
 code at the outer root, mathematical source-of-truth code in a distinct
 dependency checkout.
 
+The starter template also assumes that the TeX source of truth lives somewhere
+local to the host repo. The common layout is `./blueprint/src/chapter/*.tex`,
+but the helper surfaces this as a bootstrap parameter rather than hard-coding
+it.
+
 ## Alternative: Existing Package In Place
 
 If the host repo already has a non-trivial root `lakefile.lean`, keep the
 existing package and patch it manually:
 
-- add `verso` and `VersoBlueprint` dependencies
+- add the `VersoBlueprint` dependency, letting it drive the `verso`
+  dependency unless the host repo has a clear reason to pin `verso` directly
 - add a `blueprint-gen` executable
 - add a root blueprint module and chapter tree
 - add `scripts/ci-pages.sh`
 - add the Pages workflow
+
+In both layouts, consider keeping a harness-native `PortingStatus` page or a
+source-backed task board so the local blueprint records what still needs
+TeX-to-Verso fidelity work.
 
 Do not force the helper bootstrap script onto a heavily customized root package.
 Use the bootstrap templates as examples and adapt them manually.

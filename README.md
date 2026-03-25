@@ -7,6 +7,10 @@ The helper assumes a faithful TeX-to-Verso workflow: preserve theorem order,
 section order, and dependency edges from the legacy blueprint unless there is a
 clear harness reason not to.
 
+It tracks the current `verso-flt` harness pattern where Lean 4.28 and the
+`VersoBlueprint` compatibility branch drive the stack, including support for
+labeled local `tex` blocks when raw TeX needs to remain visible in the port.
+
 ## Add The Helper
 
 ```bash
@@ -32,12 +36,16 @@ python3 tools/verso-harness/scripts/bootstrap.py \
   --formalization-path "./MyProject"
 ```
 
+If the host repo stores TeX chapters somewhere other than the common
+`./blueprint/src/chapter/*.tex` layout, also pass `--tex-source-glob`.
+
 This seeds:
 
 - `lakefile.lean`
 - `lean-toolchain`
 - `BlueprintMain.lean`
-- a starter blueprint package with `TeXPrelude` and an introduction chapter
+- a starter blueprint package with `TeXPrelude`, `Introduction`, and
+  `PortingStatus` chapters
 - `scripts/ci-pages.sh`
 - `.github/workflows/blueprint.yml`
 

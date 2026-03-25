@@ -22,6 +22,9 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint to
 
 - Treat the legacy TeX or `leanblueprint` source as the content source of truth
   for prose structure.
+- Identify the actual TeX chapter source path in the host repo early. A common
+  layout is `./blueprint/src/chapter/*.tex`, but do not assume that path
+  without checking.
 - Prefer faithful TeX-to-Verso translation over editorial rewriting.
 - Preserve section order, labeled theorem order, and dependency structure unless
   there is a clear build or project-structure reason not to.
@@ -31,9 +34,14 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint to
 - Preserve TeX `\uses{...}` edges as Verso `{uses "..."}[]` references inside
   the relevant theorem, definition, or proof nodes rather than leaving them in
   free prose.
+- When a source block still needs to be shown verbatim, prefer a local labeled
+  `tex` block over rewriting it into placeholder prose.
 - If a chapter is only partially ported, continue with the next coherent
   section block instead of scattering edits across unrelated files.
 - Keep shared macros in one `TeXPrelude` module.
+- Keep the harness dependency stack aligned with the current pattern where
+  `VersoBlueprint` drives the `verso` dependency unless the host repo has a
+  clear reason to pin `verso` directly.
 - Validate edited blueprint modules incrementally.
 - After a coherent batch, run `bash ./scripts/ci-pages.sh`.
 - Keep the root build green. If a faithful Lean link would pull in imports that

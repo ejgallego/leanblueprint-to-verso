@@ -5,6 +5,7 @@ import VersoBlueprint.Commands.Graph
 import VersoBlueprint.Commands.Summary
 import __PACKAGE_NAME__.TeXPrelude
 import __PACKAGE_NAME__.Chapters.Introduction
+import __PACKAGE_NAME__.Chapters.PortingStatus
 
 open Verso.Genre
 open Verso.Genre.Manual
@@ -15,5 +16,6 @@ open Informal
 This repository contains the Verso blueprint harness for `__PROJECT_TITLE__`.
 
 {include 0 __PACKAGE_NAME__.Chapters.Introduction}
+{include 0 __PACKAGE_NAME__.Chapters.PortingStatus}
 {blueprint_graph}
 {blueprint_summary}

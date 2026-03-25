@@ -23,12 +23,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--formalization-name", required=True)
     parser.add_argument("--formalization-path", required=True)
     parser.add_argument(
-        "--lean-toolchain", default="leanprover/lean4:v4.29.0-rc6"
+        "--tex-source-glob",
+        default="./blueprint/src/chapter/*.tex",
+        help="Glob-like description of the TeX chapter sources in the host repo.",
     )
-    parser.add_argument("--verso-ref", default="v4.29.0-rc6")
+    parser.add_argument(
+        "--lean-toolchain", default="leanprover/lean4:v4.28.0"
+    )
     parser.add_argument(
         "--verso-blueprint-ref",
-        default="7e15d20e6a03859de535a359bca3760c039858b2",
+        default="lean-v4.28.0",
     )
     parser.add_argument(
         "--force",
@@ -83,8 +87,8 @@ def main() -> int:
         "__PROJECT_TITLE__": args.title,
         "__FORMALIZATION_NAME__": args.formalization_name,
         "__FORMALIZATION_PATH__": args.formalization_path,
+        "__TEX_SOURCE_GLOB__": args.tex_source_glob,
         "__LEAN_TOOLCHAIN__": args.lean_toolchain,
-        "__VERSO_REF__": args.verso_ref,
         "__VERSO_BLUEPRINT_REF__": args.verso_blueprint_ref,
     }
 

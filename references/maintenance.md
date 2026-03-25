@@ -9,6 +9,7 @@ Common maintenance work includes:
 - adding or splitting chapters
 - fixing `(lean := "...")` targets after declaration moves
 - extending `TeXPrelude.lean`
+- updating the source-backed porting status page or task board
 - refreshing CI or Pages wiring
 - updating the Lean toolchain or Verso dependencies
 
@@ -49,6 +50,8 @@ manually into the project-owned files.
 - Extend the root blueprint module imports and `{include ...}` entries.
 - Add shared macros only in `TeXPrelude.lean`.
 - Prefer linking existing declarations to re-stating them.
+- If the port is still source-backed, keep open TeX excerpts locally in labeled
+  `tex` blocks instead of turning them into vague placeholders.
 - Validate edited modules incrementally before building the whole site.
 
 ## Updating The Toolchain Or Dependencies
@@ -61,3 +64,6 @@ Treat toolchain bumps carefully:
 - then repair any import or syntax fallout in the blueprint modules
 
 Do not bundle unrelated blueprint prose edits into a dependency-upgrade change.
+
+The current `verso-flt` pattern is to let `VersoBlueprint` drive the `verso`
+dependency. Prefer that unless the host repo has a concrete reason not to.

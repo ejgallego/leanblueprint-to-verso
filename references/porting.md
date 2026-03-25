@@ -7,6 +7,9 @@ Verso.
 
 - Treat the legacy TeX or `leanblueprint` source as authoritative for the prose
   structure and dependency story.
+- Record the actual TeX source location in the host repo. The common legacy
+  layout is `./blueprint/src/chapter/*.tex`, but verify the real path before
+  using it in the local harness.
 - Preserve section order, labeled theorem order, and mathematical claims unless
   there is a clear harness or tooling reason not to.
 - Prefer faithful TeX-to-Verso translation over editorial rewriting.
@@ -56,6 +59,9 @@ For the in-place path, copy the template ideas manually:
 - When the TeX source has `\uses{...}`, preserve those edges as
   `{uses "..."}[]` references inside the relevant node or proof rather than in
   free prose.
+- When a source block is still open or must stay visible, attach the raw TeX
+  locally in a labeled `tex` block instead of paraphrasing it into placeholder
+  prose.
 
 Do not port the whole blueprint in one pass. Edit one module, validate it, then
 continue.
@@ -95,3 +101,14 @@ note the dependency in prose instead of breaking the build.
   deliberately after compatibility fixes land.
 - Commit coherent validated batches in the host repo instead of mixing unrelated
   chapter edits together.
+
+## 8. Track Fidelity Explicitly
+
+Consider keeping one of these harness-native tracking surfaces:
+
+- a `PortingStatus.lean` chapter that records chapter-by-chapter fidelity state
+- a source-backed task board generated from the TeX source markers
+
+The exact mechanism is project-specific, but the key point is to keep the local
+harness close to the TeX source of truth rather than relying on stale free-form
+notes.
