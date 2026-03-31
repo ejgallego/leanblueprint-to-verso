@@ -2,8 +2,7 @@ import Lake
 open Lake DSL
 
 require __FORMALIZATION_NAME__ from "__FORMALIZATION_PATH__"
-require VersoBlueprint from git "https://github.com/ejgallego/verso-blueprint.git" @
-  "__VERSO_BLUEPRINT_REF__"
+require VersoBlueprint from git "https://github.com/ejgallego/verso-blueprint.git" @ "__VERSO_BLUEPRINT_REF__"
 
 package __PACKAGE_NAME__ where
   precompileModules := false

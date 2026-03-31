@@ -10,13 +10,17 @@ Verso.
 - Record the actual TeX source location in the host repo. The common legacy
   layout is `./blueprint/src/chapter/*.tex`, but verify the real path before
   using it in the local harness.
-- Preserve section order, labeled theorem order, and mathematical claims unless
-  there is a clear harness or tooling reason not to.
+- Preserve section order, paragraph boundaries, labeled theorem order, and
+  mathematical claims unless there is a clear harness or tooling reason not to.
 - Prefer faithful TeX-to-Verso translation over editorial rewriting.
 - Identify where the real Lean declarations live.
 - Treat those modules as authoritative.
 - Prefer `(lean := "...")` links in blueprint nodes instead of duplicating
   formalized statements in prose modules.
+
+Read [lt-method.md](lt-method.md) before editing chapters. The current LT
+baseline is stricter than earlier harness passes: each translated informal
+block now needs an adjacent local `tex` witness.
 
 If the target declaration chain does not compile on the chosen toolchain, treat
 that as a deliberate formalization compatibility task rather than papering over
@@ -41,6 +45,8 @@ For the in-place path, copy the template ideas manually:
 - one `BlueprintMain.lean`
 - one shared `TeXPrelude.lean`
 - one starter chapter
+- optionally one harness-native `PortingStatus` chapter or source-backed task
+  board
 - one site-generation smoke test
 - one Pages workflow
 
@@ -49,6 +55,8 @@ For the in-place path, copy the template ideas manually:
 - Start with a small chapter or one stable slice of the old blueprint.
 - Work chapter-by-chapter and continue with the next coherent section block if
   a chapter is only partially ported.
+- Pair each translated informal block with an adjacent labeled `tex` block from
+  the source. This is part of the LT pass itself, not an optional cleanup step.
 - Keep shared TeX macros in `TeXPrelude.lean`.
 - Reuse the old macro vocabulary where it helps, but keep the prelude small.
 - Inline math opens with `$`` and closes with a backtick.
@@ -59,9 +67,8 @@ For the in-place path, copy the template ideas manually:
 - When the TeX source has `\uses{...}`, preserve those edges as
   `{uses "..."}[]` references inside the relevant node or proof rather than in
   free prose.
-- When a source block is still open or must stay visible, attach the raw TeX
-  locally in a labeled `tex` block instead of paraphrasing it into placeholder
-  prose.
+- Do not treat metadata cleanup as LT completion. First localize the text with
+  a source witness, then tighten `(lean := "...")` and `{uses "..."}[]`.
 
 Do not port the whole blueprint in one pass. Edit one module, validate it, then
 continue.
@@ -89,6 +96,19 @@ In practice:
 - after a coherent batch, use `bash ./scripts/ci-pages.sh` as the site smoke
   test
 
+For direct-port chapters, the normal LT audit stack is:
+
+```bash
+python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . path/to/Chapter.lean
+python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . path/to/Chapter.lean
+python3 tools/verso-harness/scripts/lt_audit.py --project-root . path/to/Chapter.lean
+```
+
+Treat low similarity scores as a triage signal, not as permission to rewrite
+freely. First ask whether the witness is too large, whether metadata drift is
+masking an otherwise faithful block, or whether the translation is genuinely
+non-literal.
+
 Keep the root build green. If a faithful Lean link would pull in imports that
 are not harness-clean on the current toolchain, leave the chapter informal and
 note the dependency in prose instead of breaking the build.
@@ -102,7 +122,18 @@ note the dependency in prose instead of breaking the build.
 - Commit coherent validated batches in the host repo instead of mixing unrelated
   chapter edits together.
 
-## 8. Track Fidelity Explicitly
+## 8. Record Deviations Explicitly
+
+After each porting batch, record any deliberate non-literal changes in the work
+summary:
+
+- additions
+- omissions
+- reordered material
+- invented nodes
+- editorial notes
+
+## 9. Keep A Fidelity Surface
 
 Consider keeping one of these harness-native tracking surfaces:
 

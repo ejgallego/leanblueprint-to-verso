@@ -2,7 +2,7 @@
 
 This repository is a reusable helper intended to be added as a submodule inside
 a host Lean project that is porting a `leanblueprint` or TeX blueprint to
-`verso-blueprint`.
+`verso-blueprint`, or updating an older Verso harness to the current LT method.
 
 ## Scope
 
@@ -15,10 +15,15 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint to
 - For first-time setup of an outer harness, use `scripts/bootstrap.py`.
 - For maintenance of helper-owned CI files, use `scripts/update_ci.py`.
 - For audits, use `scripts/check_harness.py`.
+- For direct-port LT audits, use `scripts/check_lt_source_pairs.py`,
+  `scripts/check_lt_similarity.py`, `scripts/status_lt.py`, and
+  `scripts/lt_audit.py`.
+- For older ports that predate the source-paired LT method, read
+  `references/retrofit.md` before editing chapters.
 - Read the relevant file in `references/` before changing script or template
   behavior.
 
-## Porting Rules
+## LT Standard
 
 - Treat the legacy TeX or `leanblueprint` source as the content source of truth
   for prose structure.
@@ -26,8 +31,12 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint to
   layout is `./blueprint/src/chapter/*.tex`, but do not assume that path
   without checking.
 - Prefer faithful TeX-to-Verso translation over editorial rewriting.
-- Preserve section order, labeled theorem order, and dependency structure unless
-  there is a clear build or project-structure reason not to.
+- Do not trust older pass labels by themselves. A chapter is not LT-audited
+  under the current method until each translated informal block has an adjacent
+  local `tex` witness.
+- Preserve section order, paragraph boundaries, labeled theorem order, and
+  dependency structure unless there is a clear build or project-structure
+  reason not to.
 - Treat the host formalization as the source of truth.
 - Prefer `(lean := "...")` links to existing declarations instead of copying
   Lean code into blueprint pages.
@@ -36,6 +45,9 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint to
   free prose.
 - When a source block still needs to be shown verbatim, prefer a local labeled
   `tex` block over rewriting it into placeholder prose.
+- Treat metadata cleanup as a second phase of LT rather than as a substitute
+  for LT. First localize the text with a `tex` witness, then tighten
+  `(lean := "...")` and `{uses "..."}[]`.
 - If a chapter is only partially ported, continue with the next coherent
   section block instead of scattering edits across unrelated files.
 - Keep shared macros in one `TeXPrelude` module.
@@ -54,5 +66,8 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint to
 ## Validation
 
 - After changing scripts, run at least the `--help` surface.
-- After changing templates, bootstrap into a scratch directory and run
-  `scripts/check_harness.py` against that generated tree.
+- When changing the LT similarity tooling, run
+  `python3 scripts/test_check_lt_similarity.py`.
+- After changing templates, bootstrap into a disposable local checkout under
+  the current repo and run `scripts/check_harness.py` against that generated
+  tree.

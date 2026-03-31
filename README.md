@@ -1,11 +1,11 @@
 # Leanblueprint Verso Helper
 
-Use this repository as a local submodule inside a Lean project that is porting
-or maintaining a `verso-blueprint` harness.
+Use this repository as a local submodule inside a Lean project that is porting,
+maintaining, or retrofitting a `verso-blueprint` harness.
 
-The helper assumes a faithful TeX-to-Verso workflow: preserve theorem order,
-section order, and dependency edges from the legacy blueprint unless there is a
-clear harness reason not to.
+The helper assumes the current LT-first workflow: preserve theorem order,
+section order, paragraph boundaries, and dependency edges from the legacy
+blueprint unless there is a clear harness reason not to.
 
 It tracks the current `verso-flt` harness pattern where Lean 4.28 and the
 `VersoBlueprint` compatibility branch drive the stack, including support for
@@ -52,17 +52,34 @@ This seeds:
 The seeded files are intentionally minimal. They are a starting point for
 Codex, not a finished port.
 
-### 2. Maintain An Existing Harness
+### 2. Retrofit An Older Harness
 
-Use the helper as local policy and refresh the helper-owned CI files with:
+Use this when a project already has an older Verso or `leanblueprint`-derived
+port that needs to conform to the current source-paired LT method.
+
+Read:
+
+- [references/retrofit.md](references/retrofit.md)
+- [references/lt-method.md](references/lt-method.md)
+- [references/maintenance.md](references/maintenance.md)
+
+The normal first steps are:
 
 ```bash
 python3 tools/verso-harness/scripts/update_ci.py --project-root .
 python3 tools/verso-harness/scripts/check_harness.py --project-root .
 ```
 
+Then run the LT audit stack on the chapters being reworked:
+
+```bash
+python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . path/to/Chapter.lean
+python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . path/to/Chapter.lean
+python3 tools/verso-harness/scripts/lt_audit.py --project-root . path/to/Chapter.lean
+```
+
 `update_ci.py` only refreshes the helper-owned CI files. It does not overwrite
-project-owned blueprint modules.
+project-owned blueprint modules or chapter prose.
 
 ### 3. Manual In-Place Integration
 
@@ -72,9 +89,23 @@ use the guidance in:
 - [references/layout.md](references/layout.md)
 - [references/porting.md](references/porting.md)
 - [references/maintenance.md](references/maintenance.md)
+- [references/retrofit.md](references/retrofit.md)
 
 That path is intentionally doc-guided rather than fully scripted, because
 patching an arbitrary existing `lakefile.lean` is project-specific.
 
+## LT Audit Stack
+
+The helper now carries the reusable LT tooling used in `verso-flt`:
+
+- `scripts/check_lt_source_pairs.py`
+- `scripts/check_lt_similarity.py`
+- `scripts/status_lt.py`
+- `scripts/lt_audit.py`
+
+These run from the helper submodule against the host repo via `--project-root`.
+They default to `<package>/Chapters/*.lean` when no explicit chapter list is
+passed, and support `--exclude` for harness-native or non-port chapters.
+
 For the detailed chapter-by-chapter workflow and validation rules, see
-`references/porting.md` and `AGENTS.md`.
+`references/lt-method.md`, `references/porting.md`, and `AGENTS.md`.
