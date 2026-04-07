@@ -24,6 +24,9 @@ git submodule add <helper-repo-url> tools/verso-harness
 Recommended host-side `AGENTS.md` wiring lives in
 [snippets/AGENTS.host.md](snippets/AGENTS.host.md).
 
+A short adoption path for other repos lives in
+[references/new-consumer-checklist.md](references/new-consumer-checklist.md).
+
 ## Main Usage Modes
 
 ### 1. Bootstrap An Outer Harness
