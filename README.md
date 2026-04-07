@@ -1,7 +1,7 @@
-# Leanblueprint Verso Helper
+# TeX Blueprint To Verso Harness
 
 Use this repository as a local submodule inside a Lean project that is porting,
-maintaining, or retrofitting a `verso-blueprint` harness.
+maintaining, or retrofitting a TeX blueprint to a `verso-blueprint` harness.
 
 The helper assumes the current LT-first workflow: preserve theorem order,
 section order, paragraph boundaries, and dependency edges from the legacy
@@ -10,6 +10,10 @@ blueprint unless there is a clear harness reason not to.
 It tracks the current `verso-flt` harness pattern where Lean 4.28 and the
 `VersoBlueprint` compatibility branch drive the stack, including support for
 labeled local `tex` blocks when raw TeX needs to remain visible in the port.
+
+Every helper-managed repo must carry a root `verso-harness.toml`. The helper
+reads package layout, chapter scope, and LT defaults from that file and does
+not guess repo structure.
 
 ## Add The Helper
 
@@ -41,6 +45,7 @@ If the host repo stores TeX chapters somewhere other than the common
 
 This seeds:
 
+- `verso-harness.toml`
 - `lakefile.lean`
 - `lean-toolchain`
 - `BlueprintMain.lean`
@@ -100,12 +105,13 @@ The helper now carries the reusable LT tooling used in `verso-flt`:
 
 - `scripts/check_lt_source_pairs.py`
 - `scripts/check_lt_similarity.py`
+- `scripts/check_source_label_grounding.py`
 - `scripts/status_lt.py`
 - `scripts/lt_audit.py`
 
 These run from the helper submodule against the host repo via `--project-root`.
-They default to `<package>/Chapters/*.lean` when no explicit chapter list is
-passed, and support `--exclude` for harness-native or non-port chapters.
+When no explicit chapter list is passed, they use `lt.default_chapters` from
+`verso-harness.toml`.
 
 For the detailed chapter-by-chapter workflow and validation rules, see
 `references/lt-method.md`, `references/porting.md`, and `AGENTS.md`.

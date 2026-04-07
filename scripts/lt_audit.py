@@ -68,30 +68,13 @@ def main() -> int:
         "paths",
         nargs="*",
         type=Path,
-        help=(
-            "Lean chapter files to audit. "
-            "Defaults to all files under <package>/Chapters."
-        ),
+        help="Lean chapter files to audit. Defaults to the configured lt.default_chapters.",
     )
     parser.add_argument(
         "--project-root",
         type=Path,
         default=None,
         help="Host project root. Defaults to the current working directory.",
-    )
-    parser.add_argument(
-        "--package-name",
-        default=None,
-        help="Blueprint package name. Inferred from lakefile.lean by default.",
-    )
-    parser.add_argument(
-        "--exclude",
-        action="append",
-        default=[],
-        help=(
-            "Exclude chapter paths when using default discovery. "
-            "Matches repo-relative glob patterns or exact file names."
-        ),
     )
     parser.add_argument(
         "--top",
@@ -123,7 +106,7 @@ def main() -> int:
     args = parser.parse_args()
 
     project_root = resolve_project_root(args.project_root)
-    paths = resolve_chapter_paths(project_root, args.paths, args.package_name, args.exclude)
+    paths = resolve_chapter_paths(project_root, args.paths)
 
     if not paths:
         print("no chapter files selected for LT audit", file=sys.stderr)

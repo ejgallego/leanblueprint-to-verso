@@ -5,12 +5,11 @@ import argparse
 from collections import Counter
 from dataclasses import dataclass
 import difflib
-from pathlib import Path
 import re
+from pathlib import Path
 import statistics
 import sys
 import unicodedata
-
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
@@ -18,6 +17,13 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from _harnesslib import resolve_chapter_paths, resolve_project_root  # noqa: E402
 from check_lt_source_pairs import Block, parse_blocks  # noqa: E402
+
+PLACEHOLDER_LEAN_TARGETS = {"???", "TODO", "TBD", "FIXME"}
+
+
+def looks_like_placeholder_lean_target(target: str) -> bool:
+    stripped = target.strip()
+    return stripped in PLACEHOLDER_LEAN_TARGETS or stripped.endswith("_placeholder")
 
 
 @dataclass
@@ -33,8 +39,12 @@ class PairScore:
     tex_uses: set[str]
     verso_lean: set[str]
     tex_lean: set[str]
+    tex_labels: set[str]
     tex_refs: set[str]
     tex_env_kind: str | None
+    tex_env_kinds: tuple[str, ...]
+    verso_env_kind: str | None
+    verso_header_id: str | None
 
     @property
     def primary_ratio(self) -> float:
@@ -57,18 +67,70 @@ class PairScore:
         return self.verso_lean - self.tex_lean
 
     @property
+    def placeholder_lean_attachments(self) -> set[str]:
+        return {
+            lean
+            for lean in self.verso_lean
+            if looks_like_placeholder_lean_target(lean) and lean not in self.tex_lean
+        }
+
+    @property
     def unresolved_ref_hints(self) -> set[str]:
         return self.tex_refs - self.tex_uses - self.tex_lean - self.verso_uses
 
     @property
-    def metadata_diff_count(self) -> int:
+    def pure_metadata_diff_count(self) -> int:
         return (
             len(self.missing_uses)
             + len(self.extra_uses)
             + len(self.missing_lean)
             + len(self.extra_lean)
+        )
+
+    @property
+    def metadata_diff_count(self) -> int:
+        return (
+            self.pure_metadata_diff_count
             + (2 * len(self.strong_ref_candidates))
             + len(self.env_ref_hints)
+        )
+
+    @property
+    def exact_drift_count(self) -> int:
+        return (
+            self.pure_metadata_diff_count
+            + len(self.label_regrounding_candidates)
+            + len(self.witness_mismatch_hints)
+        )
+
+    @property
+    def label_regrounding_candidates(self) -> set[str]:
+        if self.block.kind != "verso" or self.verso_header_id is None:
+            return set()
+        target_pool = self.tex_labels or self.tex_lean
+        if not target_pool:
+            return set()
+        if self.verso_header_id in target_pool:
+            return set()
+        return target_pool
+
+    @property
+    def witness_mismatch_hints(self) -> tuple[str, ...]:
+        if self.block.kind != "verso" or self.verso_env_kind is None:
+            return ()
+        hints: list[str] = []
+        if len(self.tex_env_kinds) > 1:
+            hints.append("multi_env_witness")
+        if self.verso_env_kind == "proof" and "proof" not in self.tex_env_kinds:
+            hints.append("proof_without_proof_env")
+        return tuple(hints)
+
+    @property
+    def ref_hint_count(self) -> int:
+        return (
+            len(self.strong_ref_candidates)
+            + len(self.env_ref_hints)
+            + len(self.soft_ref_hints)
         )
 
     @property
@@ -108,6 +170,7 @@ TEX_SIMPLE_CMD_RE = re.compile(r"\\([A-Za-z]+)")
 TEX_USES_CAPTURE_RE = re.compile(r"\\uses\{([^{}]*)\}")
 TEX_LEAN_CAPTURE_RE = re.compile(r"\\lean\{([^{}]*)\}")
 TEX_REF_CAPTURE_RE = re.compile(r"\\ref\{([^{}]*)\}")
+TEX_LABEL_CAPTURE_RE = re.compile(r"\\label\{([^{}]*)\}")
 TEX_ENV_CAPTURE_RE = re.compile(r"\\begin\{(theorem|lemma|corollary|definition|proof|remark)\}")
 VERSO_LEAN_CAPTURE_RE = re.compile(r'lean := "([^"]+)"')
 NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
@@ -136,7 +199,9 @@ def paired_blocks(path: Path) -> tuple[list[tuple[Block, Block]], list[str]]:
 
 
 def block_body(block: Block) -> str:
-    if block.kind in {"verso", "tex"}:
+    if block.kind == "verso":
+        return "\n".join(block.lines[1:-1])
+    if block.kind == "tex":
         return "\n".join(block.lines[1:-1])
     return "\n".join(block.lines)
 
@@ -169,7 +234,7 @@ def normalize_tex(text: str) -> str:
 
 
 def normalize_common(text: str) -> str:
-    text = text.replace(":::", " ")
+    text = text.replace(":::"," ")
     text = text.replace("```", " ")
     text = text.replace("~", " ")
     text = text.replace("`", " ")
@@ -248,9 +313,39 @@ def extract_tex_refs(text: str) -> set[str]:
     return {match.group(1).strip() for match in TEX_REF_CAPTURE_RE.finditer(stripped)}
 
 
+def extract_tex_labels(text: str) -> set[str]:
+    stripped = strip_tex_comments(text)
+    return {match.group(1).strip() for match in TEX_LABEL_CAPTURE_RE.finditer(stripped)}
+
+
 def extract_tex_env_kind(text: str) -> str | None:
     stripped = strip_tex_comments(text)
     match = TEX_ENV_CAPTURE_RE.search(stripped)
+    return match.group(1) if match else None
+
+
+def extract_tex_env_kinds(text: str) -> tuple[str, ...]:
+    stripped = strip_tex_comments(text)
+    return tuple(match.group(1) for match in TEX_ENV_CAPTURE_RE.finditer(stripped))
+
+
+def extract_verso_env_kind(header: str, kind: str) -> str | None:
+    if kind != "verso":
+        return None
+    stripped = header.strip()
+    if stripped.startswith(":::theorem "):
+        return "theorem"
+    if stripped.startswith(":::definition "):
+        return "definition"
+    if stripped.startswith(":::proof "):
+        return "proof"
+    return None
+
+
+def extract_verso_header_id(header: str, kind: str) -> str | None:
+    if kind != "verso":
+        return None
+    match = re.match(r'^:::(?:theorem|definition|proof) "([^"]+)"', header.strip())
     return match.group(1) if match else None
 
 
@@ -271,8 +366,12 @@ def score_pair(block: Block, tex: Block) -> PairScore:
         tex_uses=extract_tex_uses(tex_body),
         verso_lean=extract_verso_lean(block.header),
         tex_lean=extract_tex_lean(tex_body),
+        tex_labels=extract_tex_labels(tex_body),
         tex_refs=extract_tex_refs(tex_body),
         tex_env_kind=extract_tex_env_kind(tex_body),
+        tex_env_kinds=extract_tex_env_kinds(tex_body),
+        verso_env_kind=extract_verso_env_kind(block.header, block.kind),
+        verso_header_id=extract_verso_header_id(block.header, block.kind),
     )
 
 
@@ -286,16 +385,40 @@ def summarize_file(
     primary_values = [score.primary_ratio for score in scores]
     low = [score for score in scores if score.primary_ratio < warn_below]
     low.sort(key=lambda score: (score.primary_ratio, score.sequence_ratio, score.block.start_line))
-    metadata_mismatches = [score for score in scores if score.metadata_diff_count > 0]
-    metadata_mismatches.sort(key=lambda score: (-score.metadata_diff_count, score.block.start_line))
+    exact_drift_pairs = [score for score in scores if score.exact_drift_count > 0]
+    exact_drift_pairs.sort(
+        key=lambda score: (
+            -len(score.placeholder_lean_attachments),
+            -score.exact_drift_count,
+            score.block.start_line,
+        )
+    )
+    pure_metadata_pairs = [score for score in scores if score.pure_metadata_diff_count > 0]
+    placeholder_pairs = [score for score in scores if score.placeholder_lean_attachments]
+    reground_pairs = [score for score in scores if score.label_regrounding_candidates]
+    witness_pairs = [score for score in scores if score.witness_mismatch_hints]
+    ref_review_pairs = [score for score in scores if score.ref_hint_count > 0]
+    placeholder_count = sum(len(score.placeholder_lean_attachments) for score in scores)
 
     lines = [
         f"{path}: pairs={len(scores)} avg={statistics.mean(primary_values):.3f} "
         f"median={statistics.median(primary_values):.3f} min={min(primary_values):.3f} "
-        f"warn_below={warn_below:.2f} low={len(low)} metadata_mismatch={len(metadata_mismatches)}"
+        f"warn_below={warn_below:.2f} low={len(low)} drift={len(exact_drift_pairs)} "
+        f"pure_metadata={len(pure_metadata_pairs)} placeholder_lean={placeholder_count} "
+        f"reground={len(reground_pairs)} witness={len(witness_pairs)} "
+        f"ref_review={len(ref_review_pairs)}"
     ]
 
     if not verbose:
+        if placeholder_pairs:
+            lines.append("- LT-priority-1:")
+            for score in placeholder_pairs[: min(3, top)]:
+                kind = "prose" if score.block.kind == "prose" else "node"
+                lines.append(
+                    f"  line {score.block.start_line} {kind}: "
+                    f"placeholder_lean={len(score.placeholder_lean_attachments)} "
+                    f"text={score.block.preview()}"
+                )
         if low:
             lines.append("- LT-focus:")
             for score in low[: min(3, top)]:
@@ -304,19 +427,30 @@ def summarize_file(
                     f"  line {score.block.start_line} {kind}: tok={score.token_ratio:.3f} "
                     f"text={score.block.preview()}"
                 )
-        if metadata_mismatches:
+        if exact_drift_pairs:
             lines.append("- metadata-focus:")
-            for score in metadata_mismatches[: min(3, top)]:
+            for score in exact_drift_pairs[: min(3, top)]:
                 kind = "prose" if score.block.kind == "prose" else "node"
-                strong_ref_count = len(score.strong_ref_candidates)
-                env_ref_count = len(score.env_ref_hints)
                 lines.append(
                     f"  line {score.block.start_line} {kind}: "
-                    f"diffs={score.metadata_diff_count} "
+                    f"drift={score.exact_drift_count} "
+                    f"pure={score.pure_metadata_diff_count} "
+                    f"placeholder_lean={len(score.placeholder_lean_attachments)} "
+                    f"reground={len(score.label_regrounding_candidates)} "
+                    f"witness={len(score.witness_mismatch_hints)} "
                     f"missing_uses={len(score.missing_uses)} "
                     f"missing_lean={len(score.missing_lean)} "
-                    f"strong_refs={strong_ref_count} "
-                    f"env_ref_hints={env_ref_count} "
+                    f"text={score.block.preview()}"
+                )
+        if ref_review_pairs:
+            lines.append("- ref-review:")
+            for score in ref_review_pairs[: min(3, top)]:
+                kind = "prose" if score.block.kind == "prose" else "node"
+                lines.append(
+                    f"  line {score.block.start_line} {kind}: "
+                    f"strong_refs={len(score.strong_ref_candidates)} "
+                    f"env_ref_hints={len(score.env_ref_hints)} "
+                    f"soft_ref_hints={len(score.soft_ref_hints)} "
                     f"text={score.block.preview()}"
                 )
         return lines
@@ -332,6 +466,14 @@ def summarize_file(
             metadata_bits.append(f"missing_lean={sorted(score.missing_lean)}")
         if score.extra_lean:
             metadata_bits.append(f"extra_lean={sorted(score.extra_lean)}")
+        if score.placeholder_lean_attachments:
+            metadata_bits.append(
+                f"placeholder_lean={sorted(score.placeholder_lean_attachments)}"
+            )
+        if score.label_regrounding_candidates:
+            metadata_bits.append(f"label_reground={sorted(score.label_regrounding_candidates)}")
+        if score.witness_mismatch_hints:
+            metadata_bits.append(f"witness_hints={list(score.witness_mismatch_hints)}")
         if score.strong_ref_candidates:
             metadata_bits.append(f"strong_refs={sorted(score.strong_ref_candidates)}")
         if score.env_ref_hints:
@@ -345,9 +487,9 @@ def summarize_file(
             f"text={score.block.preview()}{metadata_suffix}"
         )
 
-    if metadata_mismatches:
+    if exact_drift_pairs:
         lines.append("- metadata-focus:")
-        for score in metadata_mismatches[: min(5, top)]:
+        for score in exact_drift_pairs[: min(5, top)]:
             kind = "prose" if score.block.kind == "prose" else "node"
             metadata_bits: list[str] = []
             if score.missing_uses:
@@ -358,15 +500,34 @@ def summarize_file(
                 metadata_bits.append(f"missing_lean={sorted(score.missing_lean)}")
             if score.extra_lean:
                 metadata_bits.append(f"extra_lean={sorted(score.extra_lean)}")
-            if score.strong_ref_candidates:
-                metadata_bits.append(f"strong_refs={sorted(score.strong_ref_candidates)}")
-            if score.env_ref_hints:
-                metadata_bits.append(f"env_ref_hints={sorted(score.env_ref_hints)}")
-            if score.soft_ref_hints:
-                metadata_bits.append(f"soft_ref_hints={sorted(score.soft_ref_hints)}")
+            if score.placeholder_lean_attachments:
+                metadata_bits.append(
+                    f"placeholder_lean={sorted(score.placeholder_lean_attachments)}"
+                )
+            if score.label_regrounding_candidates:
+                metadata_bits.append(f"label_reground={sorted(score.label_regrounding_candidates)}")
+            if score.witness_mismatch_hints:
+                metadata_bits.append(f"witness_hints={list(score.witness_mismatch_hints)}")
             lines.append(
                 f"  line {score.block.start_line} {kind}: "
                 + "; ".join(metadata_bits)
+                + f" text={score.block.preview()}"
+            )
+
+    if ref_review_pairs:
+        lines.append("- ref-review:")
+        for score in ref_review_pairs[: min(5, top)]:
+            kind = "prose" if score.block.kind == "prose" else "node"
+            review_bits: list[str] = []
+            if score.strong_ref_candidates:
+                review_bits.append(f"strong_refs={sorted(score.strong_ref_candidates)}")
+            if score.env_ref_hints:
+                review_bits.append(f"env_ref_hints={sorted(score.env_ref_hints)}")
+            if score.soft_ref_hints:
+                review_bits.append(f"soft_ref_hints={sorted(score.soft_ref_hints)}")
+            lines.append(
+                f"  line {score.block.start_line} {kind}: "
+                + "; ".join(review_bits)
                 + f" text={score.block.preview()}"
             )
 
@@ -377,37 +538,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Block-level LT similarity checker using adjacent tex witnesses. "
-            "LT is the canonical repository term; LF and TF are accepted aliases."
+            "LT is the canonical repository term; LF and TF are accepted aliases. "
+            "This first draft follows David's suggestion to add a mechanical LT drift signal."
         )
     )
     parser.add_argument(
         "paths",
         nargs="*",
         type=Path,
-        help=(
-            "Specific Lean chapter files to audit. "
-            "Defaults to all files under <package>/Chapters."
-        ),
+        help="Specific Lean chapter files to audit. Defaults to the configured lt.default_chapters.",
     )
     parser.add_argument(
         "--project-root",
         type=Path,
         default=None,
         help="Host project root. Defaults to the current working directory.",
-    )
-    parser.add_argument(
-        "--package-name",
-        default=None,
-        help="Blueprint package name. Inferred from lakefile.lean by default.",
-    )
-    parser.add_argument(
-        "--exclude",
-        action="append",
-        default=[],
-        help=(
-            "Exclude chapter paths when using default discovery. "
-            "Matches repo-relative glob patterns or exact file names."
-        ),
     )
     parser.add_argument(
         "--warn-below",
@@ -430,16 +575,12 @@ def main() -> int:
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Show the detailed per-block drift and metadata dump.",
+        help="Show the detailed per-block drift and metadata dump. Default output is summary-first.",
     )
     args = parser.parse_args()
 
     project_root = resolve_project_root(args.project_root)
-    paths = resolve_chapter_paths(project_root, args.paths, args.package_name, args.exclude)
-
-    if not paths:
-        print("no chapter files selected for LT similarity audit", file=sys.stderr)
-        return 2
+    paths = resolve_chapter_paths(project_root, args.paths)
 
     missing = [path for path in paths if not path.exists()]
     if missing:

@@ -1,0 +1,13 @@
+package_name = "__PACKAGE_NAME__"
+chapter_root = "__PACKAGE_NAME__/Chapters"
+tex_source_glob = "__TEX_SOURCE_GLOB__"
+
+[lt]
+default_chapters = [
+  "__PACKAGE_NAME__/Chapters/Introduction.lean",
+]
+
+[harness]
+non_port_chapters = [
+  "__PACKAGE_NAME__/Chapters/PortingStatus.lean",
+]

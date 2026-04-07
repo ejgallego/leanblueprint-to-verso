@@ -9,9 +9,6 @@ import unittest
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-ROOT = SCRIPT_DIR.parent
-SCRATCH_ROOT = ROOT / ".scratch"
-
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
@@ -25,15 +22,29 @@ def verso_block(body: str, header: str = ':::theorem "demo"') -> Block:
 
 
 def tex_block(body: str) -> Block:
-    lines = ['```tex "demo"', *body.splitlines(), "```"]
+    lines = ['```tex "demo"', *body.splitlines(), '```']
     return Block("tex", 1, len(lines), 'tex "demo"', lines)
 
 
-class CheckLtSimilarityTests(unittest.TestCase):
-    def scratch_dir(self) -> tempfile.TemporaryDirectory[str]:
-        SCRATCH_ROOT.mkdir(exist_ok=True)
-        return tempfile.TemporaryDirectory(dir=SCRATCH_ROOT)
+def write_config(root: Path, default_chapters: list[str]) -> None:
+    config = "\n".join(
+        [
+            'package_name = "DemoBlueprint"',
+            'chapter_root = "."',
+            'tex_source_glob = "./blueprint/src/chapter/*.tex"',
+            '',
+            '[lt]',
+            f'default_chapters = [{", ".join(repr(path) for path in default_chapters)}]',
+            '',
+            '[harness]',
+            'non_port_chapters = []',
+            '',
+        ]
+    )
+    (root / 'verso-harness.toml').write_text(config, encoding='utf-8')
 
+
+class CheckLtSimilarityTests(unittest.TestCase):
     def test_metadata_and_markup_are_ignored(self) -> None:
         verso = verso_block('Alpha {uses "foo"}[] [Beta](https://example.com) and $`Gamma`$.')
         tex = tex_block(
@@ -109,6 +120,64 @@ By theorem~\ref{bar}.
         self.assertEqual(score.env_ref_hints, {"bar"})
         self.assertEqual(score.strong_ref_candidates, set())
 
+    def test_label_regrounding_candidates_detect_wrapper_node(self) -> None:
+        verso = verso_block("Alpha.", header=':::theorem "english_wrapper" (lean := "Demo.foo")')
+        tex = tex_block(
+            r"""
+\begin{theorem}
+\label{Demo.foo}
+\lean{Demo.foo}
+Alpha.
+\end{theorem}
+""".strip()
+        )
+        score = score_pair(verso, tex)
+        self.assertEqual(score.label_regrounding_candidates, {"Demo.foo"})
+
+    def test_outer_repo_placeholder_lean_is_flagged(self) -> None:
+        verso = verso_block("Alpha.", header=':::theorem "demo" (lean := "Demo.foo_placeholder")')
+        tex = tex_block(
+            r"""
+\begin{theorem}
+\label{demo}
+Alpha.
+\end{theorem}
+""".strip()
+        )
+        score = score_pair(verso, tex)
+        self.assertEqual(score.placeholder_lean_attachments, {"Demo.foo_placeholder"})
+
+    def test_source_placeholder_lean_is_not_flagged_as_outer_repo_placeholder(self) -> None:
+        verso = verso_block("Alpha.", header=':::theorem "demo" (lean := "Demo.foo_placeholder")')
+        tex = tex_block(
+            r"""
+\begin{theorem}
+\label{demo}
+\lean{Demo.foo_placeholder}
+Alpha.
+\end{theorem}
+""".strip()
+        )
+        score = score_pair(verso, tex)
+        self.assertEqual(score.placeholder_lean_attachments, set())
+
+    def test_witness_mismatch_detects_multi_env_proof_witness(self) -> None:
+        verso = verso_block("Alpha.", header=':::proof "Demo.foo"')
+        tex = tex_block(
+            r"""
+\begin{lemma}
+\label{Demo.foo}
+Alpha.
+\end{lemma}
+\begin{proof}
+Alpha.
+\end{proof}
+""".strip()
+        )
+        score = score_pair(verso, tex)
+        self.assertIn("multi_env_witness", score.witness_mismatch_hints)
+        self.assertNotIn("proof_without_proof_env", score.witness_mismatch_hints)
+
     def test_unrelated_pair_scores_low(self) -> None:
         verso = verso_block("alpha beta gamma")
         tex = tex_block("delta epsilon zeta")
@@ -163,8 +232,10 @@ Plain prose block.
 Plain prose block.
 ```
 """
-        with self.scratch_dir() as tmp:
-            path = Path(tmp) / "Demo.lean"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ["Demo.lean"])
+            path = root / "Demo.lean"
             path.write_text(content, encoding="utf-8")
             pairs, errors = paired_blocks(path)
             self.assertEqual(errors, [])
@@ -182,8 +253,10 @@ Delta epsilon zeta.
 \\end{theorem}
 ```
 """
-        with self.scratch_dir() as tmp:
-            path = Path(tmp) / "Demo.lean"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ["Demo.lean"])
+            path = root / "Demo.lean"
             path.write_text(content, encoding="utf-8")
             result = subprocess.run(
                 [
@@ -195,7 +268,7 @@ Delta epsilon zeta.
                     "--fail-below",
                     "0.50",
                 ],
-                cwd=ROOT,
+                cwd=SCRIPT_DIR.parent,
                 capture_output=True,
                 text=True,
                 check=False,
@@ -216,8 +289,10 @@ Alpha.
 \\end{theorem}
 ```
 """
-        with self.scratch_dir() as tmp:
-            path = Path(tmp) / "Demo.lean"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ["Demo.lean"])
+            path = root / "Demo.lean"
             path.write_text(content, encoding="utf-8")
             result = subprocess.run(
                 [
@@ -229,7 +304,7 @@ Alpha.
                     "--top",
                     "3",
                 ],
-                cwd=ROOT,
+                cwd=SCRIPT_DIR.parent,
                 capture_output=True,
                 text=True,
                 check=False,
@@ -237,6 +312,82 @@ Alpha.
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("- metadata-focus:", result.stdout)
             self.assertNotIn("missing_uses=['bar']", result.stdout)
+            self.assertIn("pure_metadata=", result.stdout)
+
+    def test_cli_separates_ref_review_from_exact_drift(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::proof "demo"
+Alpha.
+:::
+```tex "demo/proof"
+\\begin{proof}
+By theorem~\\ref{bar}.
+\\end{proof}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ["Demo.lean"])
+            path = root / "Demo.lean"
+            path.write_text(content, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "check_lt_similarity.py"),
+                    "--project-root",
+                    tmp,
+                    str(path),
+                    "--top",
+                    "3",
+                ],
+                cwd=SCRIPT_DIR.parent,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("drift=0", result.stdout)
+            self.assertIn("ref_review=1", result.stdout)
+            self.assertIn("- ref-review:", result.stdout)
+            self.assertNotIn("- metadata-focus:", result.stdout)
+
+    def test_cli_surfaces_placeholder_lean_priority(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::theorem "demo" (lean := "Demo.foo_placeholder")
+Alpha.
+:::
+```tex "demo/theorem"
+\\begin{theorem}
+\\label{demo}
+Alpha.
+\\end{theorem}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ["Demo.lean"])
+            path = root / "Demo.lean"
+            path.write_text(content, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "check_lt_similarity.py"),
+                    "--project-root",
+                    tmp,
+                    str(path),
+                    "--top",
+                    "3",
+                ],
+                cwd=SCRIPT_DIR.parent,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("placeholder_lean=1", result.stdout)
+            self.assertIn("- LT-priority-1:", result.stdout)
 
     def test_cli_verbose_shows_detailed_metadata(self) -> None:
         content = """#doc (Manual) "Demo" =>
@@ -252,8 +403,10 @@ Alpha.
 \\end{theorem}
 ```
 """
-        with self.scratch_dir() as tmp:
-            path = Path(tmp) / "Demo.lean"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ["Demo.lean"])
+            path = root / "Demo.lean"
             path.write_text(content, encoding="utf-8")
             result = subprocess.run(
                 [
@@ -266,13 +419,14 @@ Alpha.
                     "3",
                     "--verbose",
                 ],
-                cwd=ROOT,
+                cwd=SCRIPT_DIR.parent,
                 capture_output=True,
                 text=True,
                 check=False,
             )
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("missing_uses=['bar']", result.stdout)
+            self.assertIn("label_reground=", result.stdout)
 
 
 if __name__ == "__main__":

@@ -9,8 +9,14 @@ import sys
 from pathlib import Path
 
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from _harnesslib import CONFIG_FILENAME, find_package_name, load_config  # noqa: E402
+
+
 PLACEHOLDER_PATTERN = re.compile(r"__[A-Z0-9_]+__")
-PACKAGE_PATTERN = re.compile(r"^\s*package\s+([A-Za-z_][A-Za-z0-9_]*)\s+where", re.M)
 
 
 def parse_args() -> argparse.Namespace:
@@ -19,11 +25,6 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--project-root", required=True, type=Path)
     return parser.parse_args()
-
-
-def find_package_name(lakefile: Path) -> str | None:
-    match = PACKAGE_PATTERN.search(lakefile.read_text(encoding="utf-8"))
-    return match.group(1) if match else None
 
 
 def unresolved_placeholders(project_root: Path, paths: list[Path]) -> list[Path]:
@@ -43,7 +44,9 @@ def main() -> int:
     project_root = args.project_root.resolve()
 
     missing: list[Path] = []
+    mismatches: list[str] = []
     required = [
+        Path(CONFIG_FILENAME),
         Path("lakefile.lean"),
         Path("lean-toolchain"),
         Path("BlueprintMain.lean"),
@@ -55,29 +58,55 @@ def main() -> int:
         if not (project_root / relative).exists():
             missing.append(relative)
 
-    package_name = None
+    config = None
+    if not missing:
+        try:
+            config = load_config(project_root)
+        except SystemExit as exc:
+            mismatches.append(str(exc))
+
     chapter_paths: list[Path] = []
-    lakefile = project_root / "lakefile.lean"
-    if lakefile.exists():
-        package_name = find_package_name(lakefile)
-        if package_name is None:
-            missing.append(Path("<package declaration in lakefile.lean>"))
-        else:
-            for relative in [Path(f"{package_name}.lean"), Path(package_name) / "TeXPrelude.lean"]:
-                if not (project_root / relative).exists():
-                    missing.append(relative)
-            chapter_dir = project_root / package_name / "Chapters"
-            if chapter_dir.exists():
-                chapter_paths = sorted(
-                    path.relative_to(project_root) for path in chapter_dir.glob("*.lean")
-                )
-            if not chapter_paths:
-                missing.append(Path(package_name) / "Chapters" / "<at least one .lean file>")
+    if config is not None:
+        declared_package = find_package_name(project_root)
+        if declared_package is None:
+            mismatches.append("missing <package declaration in lakefile.lean>")
+        elif declared_package != config.package_name:
+            mismatches.append(
+                f"lakefile package {declared_package!r} does not match {CONFIG_FILENAME} package_name {config.package_name!r}"
+            )
+
+        for relative in [
+            Path(f"{config.package_name}.lean"),
+            Path(config.package_name) / "TeXPrelude.lean",
+            Path(config.chapter_root) / "Introduction.lean",
+        ]:
+            if not (project_root / relative).exists():
+                missing.append(relative)
+
+        chapter_dir = project_root / config.chapter_root
+        if chapter_dir.exists():
+            chapter_paths = sorted(
+                path.relative_to(project_root)
+                for path in chapter_dir.glob("*.lean")
+            )
+        if not chapter_paths:
+            missing.append(Path(config.chapter_root) / "<at least one .lean file>")
+
+        for relative in [Path(path) for path in config.lt_default_chapters]:
+            if not (project_root / relative).exists():
+                missing.append(relative)
+        for relative in [Path(path) for path in config.non_port_chapters]:
+            if not (project_root / relative).exists():
+                missing.append(relative)
 
     placeholder_targets = required.copy()
-    if package_name is not None:
+    if config is not None:
         placeholder_targets.extend(
-            [Path(f"{package_name}.lean"), Path(package_name) / "TeXPrelude.lean"]
+            [
+                Path(f"{config.package_name}.lean"),
+                Path(config.package_name) / "TeXPrelude.lean",
+                Path(config.chapter_root) / "Introduction.lean",
+            ]
         )
     placeholder_targets.extend(chapter_paths)
     placeholder_paths = unresolved_placeholders(project_root, placeholder_targets)
@@ -87,11 +116,15 @@ def main() -> int:
         script_path.exists() and bool(script_path.stat().st_mode & stat.S_IXUSR)
     )
 
-    if missing or placeholder_paths or not script_executable:
+    if missing or mismatches or placeholder_paths or not script_executable:
         if missing:
             print("missing:")
             for path in missing:
                 print(f"  {path}")
+        if mismatches:
+            print("config:")
+            for mismatch in mismatches:
+                print(f"  {mismatch}")
         if placeholder_paths:
             print("unresolved placeholders:")
             for path in placeholder_paths:
@@ -101,7 +134,8 @@ def main() -> int:
         return 1
 
     print(f"project root: {project_root}")
-    print(f"package: {package_name}")
+    print(f"package: {config.package_name}")
+    print(f"chapter_root: {config.chapter_root}")
     print("status: ok")
     return 0
 

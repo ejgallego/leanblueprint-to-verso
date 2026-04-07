@@ -1,7 +1,7 @@
-# Leanblueprint Verso Helper
+# TeX Blueprint To Verso Harness
 
 This repository is a reusable helper intended to be added as a submodule inside
-a host Lean project that is porting a `leanblueprint` or TeX blueprint to
+a host Lean project that is porting a TeX blueprint or `leanblueprint` source to
 `verso-blueprint`, or updating an older Verso harness to the current LT method.
 
 ## Scope
@@ -9,6 +9,8 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint to
 - Keep only reusable docs, snippets, scripts, and templates here.
 - Do not store host-project mathematics, declarations, or chapter prose here.
 - The host repository owns the files materialized into its root.
+- Helper-managed repos must declare their layout explicitly in
+  `verso-harness.toml`; this helper does not guess package or chapter layout.
 
 ## Primary Workflows
 
@@ -16,7 +18,8 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint to
 - For maintenance of helper-owned CI files, use `scripts/update_ci.py`.
 - For audits, use `scripts/check_harness.py`.
 - For direct-port LT audits, use `scripts/check_lt_source_pairs.py`,
-  `scripts/check_lt_similarity.py`, `scripts/status_lt.py`, and
+  `scripts/check_lt_similarity.py`, `scripts/check_source_label_grounding.py`,
+  `scripts/status_lt.py`, and
   `scripts/lt_audit.py`.
 - For older ports that predate the source-paired LT method, read
   `references/retrofit.md` before editing chapters.
@@ -66,8 +69,9 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint to
 ## Validation
 
 - After changing scripts, run at least the `--help` surface.
-- When changing the LT similarity tooling, run
-  `python3 scripts/test_check_lt_similarity.py`.
-- After changing templates, bootstrap into a disposable local checkout under
-  the current repo and run `scripts/check_harness.py` against that generated
-  tree.
+- When changing LT similarity or grounding tooling, run:
+  - `python3 scripts/test_harness_config.py`
+  - `python3 scripts/test_check_lt_similarity.py`
+  - `python3 scripts/test_check_source_label_grounding.py`
+- After changing templates, run `python3 scripts/test_bootstrap.py`.
+

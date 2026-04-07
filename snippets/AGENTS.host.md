@@ -1,6 +1,8 @@
-# Verso Harness Notes
+# TeX Blueprint To Verso Harness Notes
 
 - This repo uses the local helper at `tools/verso-harness`.
+- Keep a root `verso-harness.toml` checked in and treat it as the source of
+  truth for package layout, LT chapter scope, and the TeX source path.
 - Before porting or maintaining blueprint files, read:
   - `tools/verso-harness/references/layout.md`
   - `tools/verso-harness/references/lt-method.md`
@@ -36,6 +38,7 @@
 - After editing direct-port chapters, run:
   - `python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . <chapter.lean>`
   - `python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . <chapter.lean>`
+- Use `python3 tools/verso-harness/scripts/check_source_label_grounding.py --project-root . <chapter.lean>`
 - Use `python3 tools/verso-harness/scripts/lt_audit.py --project-root . <chapter.lean>`
   when you want the source-pair check, similarity report, focused build, and
   optional pages smoke test in one command.
