@@ -5,13 +5,20 @@ Canonical helper repository: `leanblueprint-to-verso`.
 Use this checklist when adopting the helper in a fresh or newly-retrofitted
 consumer repository.
 
-## 1. Add The Helper
+## 1. If This Is A New Port, Use The Canonical Start Flow
+
+For a new project from an empty directory, do not improvise a layout. Use:
+
+- `references/start-new-port.md`
+- `scripts/start_new_port.py`
+
+## 2. Add The Helper
 
 ```bash
 git submodule add git@github.com:ejgallego/leanblueprint-to-verso.git tools/verso-harness
 ```
 
-## 2. Create The Root Harness Config
+## 3. Create The Root Harness Config
 
 Every helper-managed repo must carry a checked-in `verso-harness.toml` at repo
 root.
@@ -36,25 +43,6 @@ non_port_chapters = [
 ```
 
 Use explicit chapter paths. Do not rely on helper-side discovery heuristics.
-
-## 3. Bootstrap Or Retrofit
-
-For a new outer harness:
-
-```bash
-python3 tools/verso-harness/scripts/bootstrap.py \
-  --project-root . \
-  --package-name MyProjectBlueprint \
-  --title "My Project Blueprint" \
-  --formalization-name MyProject \
-  --formalization-path "./MyProject"
-```
-
-For an existing harness, keep the root project-owned files and read:
-
-- `references/retrofit.md`
-- `references/maintenance.md`
-- `snippets/AGENTS.host.md`
 
 ## 4. Validate The Harness Shape
 

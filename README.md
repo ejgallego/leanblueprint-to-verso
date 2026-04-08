@@ -29,38 +29,16 @@ Recommended host-side `AGENTS.md` wiring lives in
 A short adoption path for other repos lives in
 [references/new-consumer-checklist.md](references/new-consumer-checklist.md).
 
+The canonical empty-directory startup path lives in
+[references/start-new-port.md](references/start-new-port.md).
+
 ## Main Usage Modes
 
-### 1. Bootstrap An Outer Harness
+### 1. Start A New Port From An Empty Directory
 
-Use this when the host repo wants a dedicated root blueprint harness that
-depends on an upstream formalization checkout or submodule.
-
-```bash
-python3 tools/verso-harness/scripts/bootstrap.py \
-  --project-root . \
-  --package-name MyProjectBlueprint \
-  --title "My Project Blueprint" \
-  --formalization-name MyProject \
-  --formalization-path "./MyProject"
-```
-
-If the host repo stores TeX chapters somewhere other than the common
-`./blueprint/src/chapter/*.tex` layout, also pass `--tex-source-glob`.
-
-This seeds:
-
-- `verso-harness.toml`
-- `lakefile.lean`
-- `lean-toolchain`
-- `BlueprintMain.lean`
-- a starter blueprint package with `TeXPrelude`, `Introduction`, and
-  `PortingStatus` chapters
-- `scripts/ci-pages.sh`
-- `.github/workflows/blueprint.yml`
-
-The seeded files are intentionally minimal. They are a starting point for
-Codex, not a finished port.
+This is the canonical startup flow. Do not ask the agent to choose a layout.
+Use the dedicated integration-repo layout from
+[references/start-new-port.md](references/start-new-port.md).
 
 ### 2. Retrofit An Older Harness
 
@@ -92,18 +70,12 @@ python3 tools/verso-harness/scripts/lt_audit.py --project-root . path/to/Chapter
 `update_ci.py` only refreshes the helper-owned CI files. It does not overwrite
 project-owned blueprint modules or chapter prose.
 
-### 3. Manual In-Place Integration
+### 3. Underlying Bootstrap Command
 
-If the host repo already has a root `lakefile.lean` that cannot be replaced,
-use the guidance in:
-
-- [references/layout.md](references/layout.md)
-- [references/porting.md](references/porting.md)
-- [references/maintenance.md](references/maintenance.md)
-- [references/retrofit.md](references/retrofit.md)
-
-That path is intentionally doc-guided rather than fully scripted, because
-patching an arbitrary existing `lakefile.lean` is project-specific.
+The canonical startup script delegates to `scripts/bootstrap.py` after the
+formalization submodule is in place. `bootstrap.py` remains available as the
+low-level scaffolding command, but new ports should prefer
+`scripts/start_new_port.py`.
 
 ## LT Audit Stack
 

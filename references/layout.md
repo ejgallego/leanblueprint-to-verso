@@ -1,69 +1,45 @@
 # Layout
 
-The helper supports two host-repository shapes.
+The canonical layout for a new Leanblueprint-to-Verso project is a dedicated
+integration repository whose root is the Verso harness and whose upstream
+formalization is vendored as a submodule.
 
-## Preferred: Outer Harness At Host Root
-
-This is the supported bootstrap path. The host repo root acts as the Verso
-blueprint harness and depends on the formalization through a local Lake
-dependency.
-
-Recommended layout:
+## Canonical Layout
 
 ```text
 host-repo/
-├── tools/verso-harness/        # this helper submodule
-├── Formalization/             # upstream checkout or submodule
+├── tools/verso-harness/        # helper submodule
+├── Formalization/              # upstream formalization submodule
 ├── MyProjectBlueprint.lean
 ├── MyProjectBlueprint/
 │   ├── TeXPrelude.lean
 │   └── Chapters/
 ├── BlueprintMain.lean
+├── verso-harness.toml
 ├── lakefile.lean
 ├── lean-toolchain
 ├── scripts/ci-pages.sh
 └── .github/workflows/blueprint.yml
 ```
 
-This matches the separation that worked well in `verso-flt`: blueprint and CI
-code at the outer root, mathematical source-of-truth code in a distinct
-dependency checkout.
+This is the only startup layout for a new port.
 
-The starter template also assumes that the TeX source of truth lives somewhere
-local to the host repo. The common layout is `./blueprint/src/chapter/*.tex`,
-but the helper surfaces this as a bootstrap parameter rather than hard-coding
-it.
+## Why This Layout
 
-## Alternative: Existing Package In Place
+- it cleanly separates the integration harness from the upstream formalization
+- it makes `verso-harness.toml` the single source of truth for package layout
+- it keeps shared helper logic in `tools/verso-harness`
+- it matches the working `verso-flt` consumer shape
 
-If the host repo already has a non-trivial root `lakefile.lean`, keep the
-existing package and patch it manually:
+## Existing Repos
 
-- add the `VersoBlueprint` dependency, letting it drive the `verso`
-  dependency unless the host repo has a clear reason to pin `verso` directly
-- add a `blueprint-gen` executable
-- add a root blueprint module and chapter tree
-- add `scripts/ci-pages.sh`
-- add the Pages workflow
+If an existing repository cannot adopt this layout directly, treat that as a
+retrofit workflow, not as an alternative startup shape. Use:
 
-In both layouts, consider keeping a harness-native `PortingStatus` page or a
-source-backed task board so the local blueprint records what still needs
-TeX-to-Verso fidelity work.
-
-Do not force the helper bootstrap script onto a heavily customized root package.
-Use the bootstrap templates as examples and adapt them manually.
+- `references/retrofit.md`
+- `references/maintenance.md`
 
 ## Helper Path
 
 Prefer `tools/verso-harness` as the submodule path. It is short, local to the
 repo, and easy to reference from `AGENTS.md`.
-
-## Ignore Patterns
-
-Most host repos should ignore at least:
-
-```text
-.lake/
-_out/
-.beam/
-```
