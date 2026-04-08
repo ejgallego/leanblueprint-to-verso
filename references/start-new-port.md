@@ -42,14 +42,17 @@ python3 tools/verso-harness/scripts/start_new_port.py \
   --formalization-name <FormalizationName> \
   --formalization-remote <upstream-formalization-git-url> \
   --formalization-path <FormalizationName> \
-  --tex-source-glob "<relative-teX-source-glob>"
+  --tex-source-glob "<relative-tex-source-path-or-glob>"
 ```
 
 After the script finishes:
 
 1. confirm that `lean-toolchain` at repo root matches the upstream formalization
 2. confirm that `lakefile.lean` points to the matching `VersoBlueprint` branch `lean-<release>`
-3. review `verso-harness.toml`
+3. review `verso-harness.toml` and verify that `tex_source_glob` points at the
+   real TeX source locator; some projects use a multi-file pattern such as
+   `./blueprint/src/chapter/*.tex`, while others use a single file such as
+   `./blueprint/src/chapter/main.tex`
 4. set `lt.default_chapters` explicitly
 5. run `python3 tools/verso-harness/scripts/check_harness.py --project-root .`
 6. copy `tools/verso-harness/snippets/AGENTS.host.md` into `AGENTS.md`

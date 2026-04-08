@@ -35,7 +35,7 @@ class BootstrapTests(unittest.TestCase):
                     '--formalization-path',
                     './Demo',
                     '--tex-source-glob',
-                    './blueprint/src/chapter/*.tex',
+                    './blueprint/src/chapter/main.tex',
                 ],
                 cwd=ROOT,
                 capture_output=True,
@@ -55,6 +55,20 @@ class BootstrapTests(unittest.TestCase):
 
             config_path = root / 'verso-harness.toml'
             self.assertTrue(config_path.exists())
+            config_text = config_path.read_text(encoding='utf-8')
+            self.assertIn('package_name = "DemoBlueprint"', config_text)
+            self.assertIn('blueprint_main = "BlueprintMain"', config_text)
+            self.assertIn('chapter_root = "DemoBlueprint/Chapters"', config_text)
+            self.assertIn('tex_source_glob = "./blueprint/src/chapter/main.tex"', config_text)
+
+            status_text = (root / 'DemoBlueprint' / 'Chapters' / 'PortingStatus.lean').read_text(
+                encoding='utf-8'
+            )
+            self.assertIn(
+                'The current TeX source locator for the prose structure is',
+                status_text,
+            )
+            self.assertIn('./blueprint/src/chapter/main.tex', status_text)
 
             check = subprocess.run(
                 [

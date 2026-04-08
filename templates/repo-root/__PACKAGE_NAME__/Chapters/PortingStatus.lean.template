@@ -14,7 +14,7 @@ the TeX source.
 :::
 
 :::definition "tex_source_of_truth" (parent := "porting_status")
-The TeX source of truth for the prose structure currently lives in
+The current TeX source locator for the prose structure is
 `__TEX_SOURCE_GLOB__`.
 :::
 

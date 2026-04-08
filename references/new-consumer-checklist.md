@@ -30,7 +30,7 @@ Minimum required fields:
 package_name = "MyProjectBlueprint"
 blueprint_main = "BlueprintMain"
 chapter_root = "MyProjectBlueprint/Chapters"
-tex_source_glob = "./blueprint/src/chapter/*.tex"
+tex_source_glob = "./blueprint/src/chapter/main.tex"
 
 [lt]
 default_chapters = [
@@ -42,6 +42,10 @@ non_port_chapters = [
   "MyProjectBlueprint/Chapters/PortingStatus.lean",
 ]
 ```
+
+Use the actual relative TeX source locator here. Some projects use a single
+file such as `./blueprint/src/chapter/main.tex`; others use a multi-file
+pattern such as `./blueprint/src/chapter/*.tex`.
 
 Use explicit chapter paths. Do not rely on helper-side discovery heuristics.
 For new ports, do not choose the Lean toolchain independently: the upstream

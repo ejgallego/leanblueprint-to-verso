@@ -14,14 +14,19 @@ if str(SCRIPT_DIR) not in sys.path:
 from _harnesslib import load_config, resolve_chapter_paths  # noqa: E402
 
 
-def write_config(root: Path, *, chapter_root: str = 'DemoBlueprint/Chapters') -> None:
+def write_config(
+    root: Path,
+    *,
+    chapter_root: str = 'DemoBlueprint/Chapters',
+    tex_source_glob: str = './blueprint/src/chapter/*.tex',
+) -> None:
     (root / 'verso-harness.toml').write_text(
         '\n'.join(
             [
                 'package_name = "DemoBlueprint"',
                 'blueprint_main = "BlueprintMain"',
                 f'chapter_root = "{chapter_root}"',
-                'tex_source_glob = "./blueprint/src/chapter/*.tex"',
+                f'tex_source_glob = "{tex_source_glob}"',
                 '',
                 '[lt]',
                 'default_chapters = ["DemoBlueprint/Chapters/Introduction.lean"]',
@@ -47,6 +52,13 @@ class HarnessConfigTests(unittest.TestCase):
                 config.lt_default_chapters,
                 ('DemoBlueprint/Chapters/Introduction.lean',),
             )
+
+    def test_single_file_tex_source_locator_is_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, tex_source_glob='./blueprint/src/chapter/main.tex')
+            config = load_config(root)
+            self.assertEqual(config.tex_source_glob, './blueprint/src/chapter/main.tex')
 
     def test_missing_config_is_fatal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

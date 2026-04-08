@@ -28,7 +28,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--tex-source-glob",
         default="./blueprint/src/chapter/*.tex",
-        help="Glob-like description of the TeX chapter sources in the upstream repo.",
+        help=(
+            "Relative TeX source locator in the upstream repo. This may be a "
+            "single file such as ./blueprint/src/chapter/main.tex or a "
+            "glob-like path description such as ./blueprint/src/chapter/*.tex."
+        ),
     )
     parser.add_argument(
         "--force",

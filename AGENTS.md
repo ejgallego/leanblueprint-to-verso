@@ -30,9 +30,10 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint source to
 
 - Treat the legacy TeX or `leanblueprint` source as the content source of truth
   for prose structure.
-- Identify the actual TeX chapter source path in the host repo early. A common
-  layout is `./blueprint/src/chapter/*.tex`, but do not assume that path
-  without checking.
+- Identify the actual TeX chapter source locator in the host repo early. A
+  common layout is `./blueprint/src/chapter/*.tex`, but some projects use a
+  single file such as `./blueprint/src/chapter/main.tex`; do not assume either
+  layout without checking.
 - Prefer faithful TeX-to-Verso translation over editorial rewriting.
 - Do not trust older pass labels by themselves. A chapter is not LT-audited
   under the current method until each translated informal block has an adjacent
@@ -76,4 +77,3 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint source to
   - `python3 scripts/test_check_source_label_grounding.py`
 - After changing templates, run `python3 scripts/test_bootstrap.py`.
 - When changing the canonical startup flow, run `python3 scripts/test_start_new_port.py`.
-

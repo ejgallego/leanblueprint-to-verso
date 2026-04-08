@@ -8,8 +8,9 @@ Verso.
 - Treat the legacy TeX or `leanblueprint` source as authoritative for the prose
   structure and dependency story.
 - Record the actual TeX source location in the host repo. The common legacy
-  layout is `./blueprint/src/chapter/*.tex`, but verify the real path before
-  using it in the local harness.
+  layout is `./blueprint/src/chapter/*.tex`, but some projects use a single
+  file such as `./blueprint/src/chapter/main.tex`; verify the real source
+  locator before using it in the local harness.
 - Preserve section order, paragraph boundaries, labeled theorem order, and
   mathematical claims unless there is a clear harness or tooling reason not to.
 - Prefer faithful TeX-to-Verso translation over editorial rewriting.

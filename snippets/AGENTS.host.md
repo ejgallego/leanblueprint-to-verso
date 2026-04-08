@@ -13,9 +13,10 @@
 - Use `python3 tools/verso-harness/scripts/check_harness.py --project-root .`
   to audit the local harness.
 - Treat the legacy TeX or `leanblueprint` source as the prose source of truth.
-- Record the real TeX chapter source path for this repo. The common legacy
-  layout is `./blueprint/src/chapter/*.tex`, but verify it before wiring status
-  pages or source-backed notes.
+- Record the real TeX chapter source locator for this repo. The common legacy
+  layout is `./blueprint/src/chapter/*.tex`, but some projects use a single
+  file such as `./blueprint/src/chapter/main.tex`; verify it before wiring
+  status pages or source-backed notes.
 - The default deliverable for direct-port chapters is an LT pass. Do not trust
   older LT labels by themselves; every translated informal block now needs an
   adjacent local `tex` witness.

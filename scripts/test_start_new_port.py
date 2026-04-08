@@ -52,7 +52,8 @@ class StartNewPortTests(unittest.TestCase):
                     '--formalization-name', 'Demo',
                     '--formalization-remote', str(formalization),
                     '--formalization-path', 'Demo',
-                    '--tex-source-glob', './blueprint/src/chapter/*.tex',
+                    "--tex-source-glob",
+                    "./blueprint/src/chapter/main.tex",
                 ],
                 cwd=ROOT,
             )
@@ -70,6 +71,11 @@ class StartNewPortTests(unittest.TestCase):
             self.assertIn('@ "lean-v4.28.0"', lakefile)
             self.assertTrue((project / 'verso-harness.toml').exists())
             self.assertTrue((project / 'BlueprintMain.lean').exists())
+            config_text = (project / 'verso-harness.toml').read_text(encoding='utf-8')
+            self.assertIn(
+                'tex_source_glob = "./blueprint/src/chapter/main.tex"',
+                config_text,
+            )
 
             check = run(
                 [
