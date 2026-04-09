@@ -70,6 +70,10 @@ consumer repo's `AGENTS.md`.
 
 ## 6. Start The Port With A Concrete Prompt
 
+Use the shared checking tools from `tools/verso-harness/scripts/...` for
+fidelity, grounding, math sanity, and port status.
+
+
 For a regular blueprint repository, start the port with a concrete request like:
 
 ```text

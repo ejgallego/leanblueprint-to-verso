@@ -7,6 +7,7 @@ The intended operator flow is:
 - a human creates the repo and runs the startup commands
 - the human then opens Codex CLI inside the repo
 - Codex performs the chapter porting work under the local `AGENTS.md` and harness docs
+- Codex should use the harness-provided checking tools for fidelity, grounding, and port status rather than inventing ad hoc checks
 
 ## Canonical Shape
 

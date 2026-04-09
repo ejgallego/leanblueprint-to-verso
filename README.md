@@ -11,6 +11,7 @@ The normal operating model is:
 - a human sets up the repo with this harness
 - the human uses Codex CLI to issue prompts and carry out the porting work
 - Codex reads `verso-harness.toml`, `AGENTS.md`, and the harness docs
+- Codex should use the harness-provided checking tools for fidelity, grounding, and port status
 
 ## Start Here
 
