@@ -75,6 +75,7 @@ def main() -> int:
             )
 
         for relative in [
+            Path(config.formalization_path),
             Path(f"{config.blueprint_main}.lean"),
             Path(f"{config.package_name}.lean"),
             Path(config.package_name) / "TeXPrelude.lean",
@@ -104,6 +105,7 @@ def main() -> int:
         placeholder_targets.extend(
             [
                 Path(f"{config.blueprint_main}.lean"),
+                Path(config.formalization_path),
                 Path(f"{config.package_name}.lean"),
                 Path(config.package_name) / "TeXPrelude.lean",
                 Path(config.chapter_root) / "Introduction.lean",

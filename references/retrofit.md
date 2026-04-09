@@ -21,6 +21,7 @@ Make sure the host repo has a checked-in `verso-harness.toml` at repo root.
 That file is the source of truth for:
 
 - `package_name`
+- `formalization_path`
 - `chapter_root`
 - `tex_source_glob`
 - `lt.default_chapters`

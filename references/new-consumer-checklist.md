@@ -29,6 +29,7 @@ Minimum required fields:
 ```toml
 package_name = "MyProjectBlueprint"
 blueprint_main = "BlueprintMain"
+formalization_path = "MyProject"
 chapter_root = "MyProjectBlueprint/Chapters"
 tex_source_glob = "./blueprint/src/chapter/main.tex"
 

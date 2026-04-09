@@ -49,14 +49,16 @@ After the script finishes:
 
 1. confirm that `lean-toolchain` at repo root matches the upstream formalization
 2. confirm that `lakefile.lean` points to the matching `VersoBlueprint` branch `lean-<release>`
-3. review `verso-harness.toml` and verify that `tex_source_glob` points at the
+3. review `verso-harness.toml` and verify that `formalization_path` matches the
+   upstream submodule path
+4. review `verso-harness.toml` and verify that `tex_source_glob` points at the
    real TeX source locator; some projects use a multi-file pattern such as
    `./blueprint/src/chapter/*.tex`, while others use a single file such as
    `./blueprint/src/chapter/main.tex`
-4. set `lt.default_chapters` explicitly
-5. run `python3 tools/verso-harness/scripts/check_harness.py --project-root .`
-6. copy `tools/verso-harness/snippets/AGENTS.host.md` into `AGENTS.md`
-7. start the first LT chapter pass
+5. set `lt.default_chapters` explicitly
+6. run `python3 tools/verso-harness/scripts/check_harness.py --project-root .`
+7. copy `tools/verso-harness/snippets/AGENTS.host.md` into `AGENTS.md`
+8. start the first LT chapter pass
 
 ## Start-Port Prompt
 

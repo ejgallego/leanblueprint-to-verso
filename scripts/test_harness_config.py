@@ -25,6 +25,7 @@ def write_config(
             [
                 'package_name = "DemoBlueprint"',
                 'blueprint_main = "BlueprintMain"',
+                'formalization_path = "Demo"',
                 f'chapter_root = "{chapter_root}"',
                 f'tex_source_glob = "{tex_source_glob}"',
                 '',

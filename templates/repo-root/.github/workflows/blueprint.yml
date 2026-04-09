@@ -29,6 +29,9 @@ jobs:
         run: |
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Read harness config
+        id: harness
+        run: python3 tools/verso-harness/scripts/export_ci_env.py --project-root . >> "$GITHUB_OUTPUT"
       - name: Restore Lake package cache
         uses: actions/cache@v4
         with:
@@ -47,8 +50,8 @@ jobs:
             .lake/build/bin
             .lake/build/lib
             .lake/build/ir
-            __FORMALIZATION_PATH__/.lake/build/lib
-            __FORMALIZATION_PATH__/.lake/build/ir
+            ${{ steps.harness.outputs.formalization_path }}/.lake/build/lib
+            ${{ steps.harness.outputs.formalization_path }}/.lake/build/ir
           key: ${{ runner.os }}-lean-build-v1-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.lean', '.gitmodules', 'BlueprintMain.lean', '*.lean', '**/*.lean', 'scripts/ci-pages.sh') }}
           restore-keys: |
             ${{ runner.os }}-lean-build-v1-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.lean', '.gitmodules') }}-
@@ -61,9 +64,9 @@ jobs:
       - name: Warm Lean dependency cache
         run: |
           lake exe cache get || true
-          if [ -f "__FORMALIZATION_PATH__/lakefile.lean" ]; then
+          if [ -f "${{ steps.harness.outputs.formalization_path }}/lakefile.lean" ]; then
             (
-              cd "__FORMALIZATION_PATH__"
+              cd "${{ steps.harness.outputs.formalization_path }}"
               lake exe cache get || true
             )
           fi
