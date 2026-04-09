@@ -68,6 +68,16 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint source to
   target repo is known to tolerate concurrent sync traffic.
 - Keep template changes, docs, and snippets aligned.
 
+## Sub-Agent Coordination
+
+- Prefer one agent per chapter, or one agent per clearly disjoint file set.
+- Do not split one chapter across multiple agents unless one side is read-only.
+- Keep every agent on the same `verso-harness.toml` contract for package layout, chapter scope, and TeX source location.
+- Good parallel lanes are independent direct-port chapters or one chapter edit plus one audit-only lane on a different chapter.
+- Avoid concurrent edits to shared root files such as `lakefile.lean`, `lean-toolchain`, `verso-harness.toml`, `BlueprintMain.lean`, or shared chapter index files unless one agent owns that whole write scope.
+- Serialize repository-level validation. In particular, do not run multiple whole-site builds or multiple `lean-beam sync` requests against the same project root at the same time.
+- Merge the chapter-level edits first, then run the final shared validation steps once.
+
 ## Validation
 
 - After changing scripts, run at least the `--help` surface.

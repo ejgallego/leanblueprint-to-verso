@@ -49,3 +49,6 @@
   dependency in prose instead.
 - If using `lean-beam`, avoid parallel `sync` calls against the same project
   root unless the target repo is known to tolerate it.
+- If using sub-agents, prefer one agent per chapter or per clearly disjoint file set.
+- Do not split one chapter across multiple agents unless one side is read-only.
+- Merge chapter edits before running shared validation steps.
