@@ -53,6 +53,29 @@ class HarnessConfigTests(unittest.TestCase):
                 config.lt_default_chapters,
                 ('DemoBlueprint/Chapters/Introduction.lean',),
             )
+            self.assertEqual(
+                config.lt_node_kind_pairs,
+                (
+                    ('theorem', 'theorem'),
+                    ('definition', 'definition'),
+                    ('lemma', 'lemma_'),
+                    ('corollary', 'corollary'),
+                    ('proof', 'proof'),
+                ),
+            )
+
+    def test_custom_node_kind_pairs_extend_defaults(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root)
+            config_path = root / 'verso-harness.toml'
+            config_path.write_text(
+                config_path.read_text(encoding='utf-8')
+                + '\n[lt.node_kinds]\nproposition = "theorem"\n',
+                encoding='utf-8',
+            )
+            config = load_config(root)
+            self.assertIn(('proposition', 'theorem'), config.lt_node_kind_pairs)
 
     def test_single_file_tex_source_locator_is_accepted(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

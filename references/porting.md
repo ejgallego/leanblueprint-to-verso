@@ -65,6 +65,12 @@ For the in-place path, copy the template ideas manually:
 - When the TeX source has a labeled theorem, definition, lemma, corollary, or
   proof step that still matters to the dependency story, prefer creating a
   corresponding Verso node rather than burying it in prose.
+- Keep prose as prose unless the source really gives a graph-visible theorem,
+  definition, lemma, corollary, or proof-style object.
+- Preserve TeX environment kind faithfully instead of flattening different
+  theorem-like environments into a generic `:::theorem` wrapper.
+- Do not use `:::theorem` as a generic wrapper for graph noise control or
+  chapter organization.
 - When the TeX source has `\uses{...}`, preserve those edges as
   `{uses "..."}[]` references inside the relevant node or proof rather than in
   free prose.
@@ -102,6 +108,7 @@ For direct-port chapters, the normal LT audit stack is:
 ```bash
 python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . path/to/Chapter.lean
+python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . path/to/Chapter.lean
 ```
 

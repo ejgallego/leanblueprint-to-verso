@@ -38,6 +38,13 @@ default_chapters = [
   "MyProjectBlueprint/Chapters/Introduction.lean",
 ]
 
+[lt.node_kinds]
+theorem = "theorem"
+definition = "definition"
+lemma = "lemma_"
+corollary = "corollary"
+proof = "proof"
+
 [harness]
 non_port_chapters = [
   "MyProjectBlueprint/Chapters/PortingStatus.lean",
@@ -47,6 +54,9 @@ non_port_chapters = [
 Use the actual relative TeX source locator here. Some projects use a single
 file such as `./blueprint/src/chapter/main.tex`; others use a multi-file
 pattern such as `./blueprint/src/chapter/*.tex`.
+The `[lt.node_kinds]` table is the shared graph-kind policy surface. Keep it
+aligned with the consumer's actual TeX environment names if the project needs
+to extend the default theorem/definition/lemma/corollary/proof mapping.
 
 Use explicit chapter paths. Do not rely on helper-side discovery heuristics.
 For new ports, do not choose the Lean toolchain independently: the upstream
@@ -82,7 +92,8 @@ Treat the legacy TeX / leanblueprint source as read-only source of truth.
 Start a faithful LT pass on the first unchecked chapter in lt.default_chapters.
 Do not rewrite the prose for style.
 Add adjacent tex witnesses for every translated informal block.
-After the edit, run check_lt_source_pairs.py, check_lt_similarity.py, check_source_label_grounding.py, and check_verso_math_delimiters.py on the touched chapter.
+Do not use `:::theorem` as a generic wrapper. Preserve TeX environment kind and keep prose as prose unless the source really gives a graph-visible theorem/definition/proof-style object.
+After the edit, run check_lt_source_pairs.py, check_lt_similarity.py, check_blueprint_node_kinds.py, check_source_label_grounding.py, and check_verso_math_delimiters.py on the touched chapter.
 Record any deliberate non-literal deviations.
 ```
 
@@ -93,6 +104,7 @@ Use tools/verso-harness and verso-harness.toml.
 Continue the LT pass on <chapter>.lean only.
 Preserve source order and local claim order.
 Do not invent new dependency edges or placeholder Lean declarations.
+Preserve source node kinds; do not flatten theorem-like material into generic `:::theorem` wrappers.
 Run the helper LT audit stack on that chapter before stopping.
 ```
 
@@ -103,6 +115,7 @@ For each touched direct-port chapter, run:
 ```bash
 python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . path/to/Chapter.lean
+python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_source_label_grounding.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_verso_math_delimiters.py --project-root . path/to/Chapter.lean
 ```

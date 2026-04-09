@@ -62,6 +62,8 @@ class BootstrapTests(unittest.TestCase):
             self.assertIn('formalization_path = "./Demo"', config_text)
             self.assertIn('chapter_root = "DemoBlueprint/Chapters"', config_text)
             self.assertIn('tex_source_glob = "./blueprint/src/chapter/main.tex"', config_text)
+            self.assertIn('[lt.node_kinds]', config_text)
+            self.assertIn('proof = "proof"', config_text)
 
             status_text = (root / 'DemoBlueprint' / 'Chapters' / 'PortingStatus.lean').read_text(
                 encoding='utf-8'

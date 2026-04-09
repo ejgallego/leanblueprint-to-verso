@@ -11,7 +11,7 @@ The normal operating model is:
 - a human sets up the repo with this harness
 - the human uses Codex CLI to issue prompts and carry out the porting work
 - Codex reads `verso-harness.toml`, `AGENTS.md`, and the harness docs
-- Codex should use the harness-provided checking tools for fidelity, grounding, and port status
+- Codex should use the harness-provided checking tools for fidelity, grounding, graph shape, and port status
 
 ## Start Here
 
@@ -70,6 +70,7 @@ Run the main chapter-audit commands:
 ```bash
 python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . path/to/Chapter.lean
+python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_source_label_grounding.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_verso_math_delimiters.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . path/to/Chapter.lean

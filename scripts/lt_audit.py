@@ -61,7 +61,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Run the LT audit stack for one or more chapter files: source-pair check, "
-            "similarity report, chapter build, and optionally the pages smoke test."
+            "similarity report, optional node-kind and math checks, chapter build, and "
+            "optionally the pages smoke test."
         )
     )
     parser.add_argument(
@@ -104,6 +105,11 @@ def main() -> int:
         help="Pass through verbose per-block LT similarity output instead of the summary view.",
     )
     parser.add_argument(
+        "--node-kinds",
+        action="store_true",
+        help="Also run the configured graph-visible node-kind checker on each touched chapter.",
+    )
+    parser.add_argument(
         "--math-sanity",
         action="store_true",
         help="Also run the conservative Verso math-delimiter checker on each touched chapter.",
@@ -120,6 +126,7 @@ def main() -> int:
     overall_ok = True
     source_pair_script = str(SCRIPT_DIR / "check_lt_source_pairs.py")
     similarity_script = str(SCRIPT_DIR / "check_lt_similarity.py")
+    node_kind_script = str(SCRIPT_DIR / "check_blueprint_node_kinds.py")
     math_script = str(SCRIPT_DIR / "check_verso_math_delimiters.py")
 
     for path in paths:
@@ -154,6 +161,15 @@ def main() -> int:
         )
         print_step(similarity_result)
         overall_ok &= similarity_result.ok
+
+        if args.node_kinds:
+            node_kind_result = run_step(
+                project_root,
+                "node kind check",
+                [sys.executable, node_kind_script, "--project-root", str(project_root), str(path)],
+            )
+            print_step(node_kind_result)
+            overall_ok &= node_kind_result.ok
 
         if args.math_sanity:
             math_result = run_step(

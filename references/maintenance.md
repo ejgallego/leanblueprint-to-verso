@@ -68,6 +68,7 @@ manually into the project-owned files.
 - For direct-port chapters, use the LT audit stack after each coherent batch:
   - `check_lt_source_pairs.py`
   - `check_lt_similarity.py`
+  - `check_blueprint_node_kinds.py`
   - `lt_audit.py`
 
 ## Updating The Toolchain Or Dependencies

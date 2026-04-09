@@ -77,6 +77,8 @@ class StartNewPortTests(unittest.TestCase):
                 'tex_source_glob = "./blueprint/src/chapter/main.tex"',
                 config_text,
             )
+            self.assertIn('[lt.node_kinds]', config_text)
+            self.assertIn('proof = "proof"', config_text)
 
             check = run(
                 [

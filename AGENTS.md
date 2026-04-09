@@ -18,7 +18,8 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint source to
 - For maintenance of helper-owned CI files, use `scripts/update_ci.py`.
 - For audits, use `scripts/check_harness.py`.
 - For direct-port LT audits, use `scripts/check_lt_source_pairs.py`,
-  `scripts/check_lt_similarity.py`, `scripts/check_source_label_grounding.py`,
+  `scripts/check_lt_similarity.py`, `scripts/check_blueprint_node_kinds.py`,
+  `scripts/check_source_label_grounding.py`,
   `scripts/check_verso_math_delimiters.py`, `scripts/status_lt.py`, and
   `scripts/lt_audit.py`.
 - For older ports that predate the source-paired LT method, read
@@ -47,6 +48,14 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint source to
 - Preserve TeX `\uses{...}` edges as Verso `{uses "..."}[]` references inside
   the relevant theorem, definition, or proof nodes rather than leaving them in
   free prose.
+- Keep prose as prose unless the source really gives a graph-visible theorem,
+  definition, lemma, corollary, or proof-style object.
+- Preserve TeX environment kind faithfully. Use `:::lemma_` for source lemmas,
+  `:::corollary` for source corollaries, `:::definition` for source
+  definitions, `:::proof` for source proofs, and reserve `:::theorem` for real
+  source theorems.
+- Do not use `:::theorem` as a generic wrapper for source material that should
+  remain prose or a different graph-visible kind.
 - When a source block still needs to be shown verbatim, prefer a local labeled
   `tex` block over rewriting it into placeholder prose.
 - Treat metadata cleanup as a second phase of LT rather than as a substitute
@@ -83,6 +92,7 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint source to
 - After changing scripts, run at least the `--help` surface.
 - When changing LT similarity or grounding tooling, run:
   - `python3 scripts/test_harness_config.py`
+  - `python3 scripts/test_check_blueprint_node_kinds.py`
   - `python3 scripts/test_check_lt_similarity.py`
   - `python3 scripts/test_check_source_label_grounding.py`
 - After changing templates, run `python3 scripts/test_bootstrap.py`.

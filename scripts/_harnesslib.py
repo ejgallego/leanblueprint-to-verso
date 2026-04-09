@@ -10,6 +10,13 @@ import tomllib
 
 CONFIG_FILENAME = "verso-harness.toml"
 PACKAGE_PATTERN = re.compile(r"^\s*package\s+([A-Za-z_][A-Za-z0-9_]*)\s+where", re.M)
+DEFAULT_LT_NODE_KIND_PAIRS = (
+    ("theorem", "theorem"),
+    ("definition", "definition"),
+    ("lemma", "lemma_"),
+    ("corollary", "corollary"),
+    ("proof", "proof"),
+)
 
 
 @dataclass(frozen=True)
@@ -20,6 +27,7 @@ class HarnessConfig:
     chapter_root: str
     tex_source_glob: str
     lt_default_chapters: tuple[str, ...]
+    lt_node_kind_pairs: tuple[tuple[str, str], ...]
     non_port_chapters: tuple[str, ...]
 
 
@@ -68,6 +76,56 @@ def require_string_list(
     return items
 
 
+def require_string_table(
+    table: dict[str, object],
+    key: str,
+    field_name: str,
+    *,
+    allow_empty: bool,
+) -> tuple[tuple[str, str], ...]:
+    value = table.get(key)
+    if not isinstance(value, dict):
+        raise SystemExit(f"{CONFIG_FILENAME}: missing or invalid {field_name}")
+
+    items: list[tuple[str, str]] = []
+    for raw_key, raw_value in value.items():
+        if not isinstance(raw_key, str) or not raw_key.strip():
+            raise SystemExit(f"{CONFIG_FILENAME}: missing or invalid {field_name}")
+        if not isinstance(raw_value, str) or not raw_value.strip():
+            raise SystemExit(f"{CONFIG_FILENAME}: missing or invalid {field_name}")
+        items.append((raw_key.strip(), raw_value.strip()))
+
+    if not allow_empty and not items:
+        raise SystemExit(f"{CONFIG_FILENAME}: {field_name} must not be empty")
+    return tuple(items)
+
+
+def load_lt_node_kind_pairs(lt_section: dict[str, object]) -> tuple[tuple[str, str], ...]:
+    if "node_kinds" not in lt_section:
+        return DEFAULT_LT_NODE_KIND_PAIRS
+
+    overrides = require_string_table(
+        lt_section,
+        "node_kinds",
+        "lt.node_kinds",
+        allow_empty=False,
+    )
+    merged = dict(DEFAULT_LT_NODE_KIND_PAIRS)
+    merged.update(overrides)
+
+    ordered_pairs: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for tex_kind, verso_kind in DEFAULT_LT_NODE_KIND_PAIRS:
+        ordered_pairs.append((tex_kind, merged[tex_kind]))
+        seen.add(tex_kind)
+    for tex_kind, _ in overrides:
+        if tex_kind in seen:
+            continue
+        ordered_pairs.append((tex_kind, merged[tex_kind]))
+        seen.add(tex_kind)
+    return tuple(ordered_pairs)
+
+
 def load_config(project_root: Path) -> HarnessConfig:
     path = config_path(project_root)
     if not path.exists():
@@ -108,6 +166,7 @@ def load_config(project_root: Path) -> HarnessConfig:
         "lt.default_chapters",
         allow_empty=False,
     )
+    lt_node_kind_pairs = load_lt_node_kind_pairs(lt_section)
     for chapter in lt_default_chapters:
         require_relative_path(chapter, "lt.default_chapters")
 
@@ -142,6 +201,7 @@ def load_config(project_root: Path) -> HarnessConfig:
         chapter_root=chapter_root,
         tex_source_glob=tex_source_glob,
         lt_default_chapters=lt_default_chapters,
+        lt_node_kind_pairs=lt_node_kind_pairs,
         non_port_chapters=non_port_chapters,
     )
 

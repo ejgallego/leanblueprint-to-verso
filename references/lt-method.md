@@ -19,9 +19,11 @@ Faithfulness`) are accepted aliases for the same workflow.
 - Valid Verso inline math opens with `$`` and closes with the final backtick
   alone. Because this overlaps with Markdown-style backticks, be conservative:
   do not transform already-valid `$`...`` into the malformed form `$`...`$`.
-- Do not promote plain prose into new theorem, definition, or proof nodes
-  unless the source already has a corresponding formal environment or proof
-  step that should remain graph-visible.
+- Keep prose as prose unless the source already has a corresponding theorem,
+  definition, lemma, corollary, proof, or similar graph-visible source object.
+- Preserve theorem-like environment kind faithfully. Do not translate a TeX
+  lemma, corollary, definition, or proof into a generic `:::theorem` wrapper.
+- Do not use `:::theorem` as a generic wrapper for theorem-like source blocks.
 - Preserve TeX `\uses{...}` edges when they carry real dependency meaning, but
   do not invent new dependency edges just to improve graph shape.
 - Treat metadata cleanup as a second phase of LT rather than as a substitute
@@ -55,8 +57,10 @@ After a coherent direct-port batch, run:
 ```bash
 python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . path/to/Chapter.lean
+python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_verso_math_delimiters.py --project-root . path/to/Chapter.lean
 ```
 
-Use `lt_audit.py --math-sanity` when you also want the focused chapter build,
-optional pages smoke test, and the conservative math-delimiter check.
+Use `lt_audit.py --node-kinds --math-sanity` when you also want the focused
+chapter build, optional pages smoke test, the graph-visible node-kind check,
+and the conservative math-delimiter check.

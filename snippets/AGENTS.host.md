@@ -27,6 +27,14 @@
   Lean code in blueprint modules.
 - Preserve TeX `\uses{...}` edges as Verso `{uses "..."}[]` references inside
   the relevant node or proof, not just in free prose.
+- Keep prose as prose unless the source really gives a graph-visible theorem,
+  definition, lemma, corollary, or proof-style object.
+- Preserve TeX environment kind faithfully. Use `:::lemma_` for TeX
+  `\begin{lemma}`, `:::corollary` for `\begin{corollary}`, `:::definition` for
+  `\begin{definition}`, `:::proof` for `\begin{proof}`, and reserve
+  `:::theorem` for `\begin{theorem}`.
+- Do not use `:::theorem` as a generic wrapper for source material that should
+  remain prose or another node kind.
 - When the source block still needs to stay visible, prefer a labeled local
   `tex` block over rewriting it into placeholder prose.
 - Treat metadata cleanup as a second phase of LT rather than as a substitute
@@ -39,10 +47,12 @@
 - After editing direct-port chapters, run:
   - `python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . <chapter.lean>`
   - `python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . <chapter.lean>`
+- Use `python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root . <chapter.lean>`
 - Use `python3 tools/verso-harness/scripts/check_source_label_grounding.py --project-root . <chapter.lean>`
 - Use `python3 tools/verso-harness/scripts/lt_audit.py --project-root . <chapter.lean>`
   when you want the source-pair check, similarity report, focused build, and
-  optional pages smoke test in one command.
+  optional extra checks such as `--node-kinds`, `--math-sanity`, or pages
+  smoke test in one command.
 - After a coherent batch, run `bash ./scripts/ci-pages.sh`.
 - Keep the root build green. If a Lean link would pull in imports that are not
   harness-clean on the current toolchain, leave the node informal and note the

@@ -77,7 +77,8 @@ Treat the legacy TeX / leanblueprint source as read-only source of truth.
 Start a faithful LT pass on the first unchecked chapter in lt.default_chapters.
 Do not rewrite the prose for style.
 Add adjacent tex witnesses for every translated informal block.
+Do not use `:::theorem` as a generic wrapper. Preserve TeX environment kind faithfully and keep prose as prose unless the source really gives a graph-visible theorem/definition/proof-style object.
 Do not invent new dependency edges or placeholder Lean declarations.
-After the edit, run check_lt_source_pairs.py, check_lt_similarity.py, check_source_label_grounding.py, and check_verso_math_delimiters.py on the touched chapter.
+After the edit, run check_lt_source_pairs.py, check_lt_similarity.py, check_blueprint_node_kinds.py, check_source_label_grounding.py, and check_verso_math_delimiters.py on the touched chapter.
 Record any deliberate non-literal deviations.
 ```

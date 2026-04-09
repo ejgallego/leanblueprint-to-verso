@@ -9,6 +9,13 @@ default_chapters = [
   "__PACKAGE_NAME__/Chapters/Introduction.lean",
 ]
 
+[lt.node_kinds]
+theorem = "theorem"
+definition = "definition"
+lemma = "lemma_"
+corollary = "corollary"
+proof = "proof"
+
 [harness]
 non_port_chapters = [
   "__PACKAGE_NAME__/Chapters/PortingStatus.lean",
