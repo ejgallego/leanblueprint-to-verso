@@ -125,21 +125,42 @@ def classify_warning_owner(
     project_root_resolved = project_root.resolve()
     formalization_root = (project_root / formalization_path).resolve()
     path = Path(raw_path)
-    resolved = path.resolve() if path.is_absolute() else (project_root / path).resolve()
+    resolved_candidates = (
+        [path.resolve()]
+        if path.is_absolute()
+        else [
+            (project_root_resolved / path).resolve(),
+            (formalization_root / path).resolve(),
+        ]
+    )
 
-    try:
-        relative = resolved.relative_to(project_root_resolved)
-    except ValueError:
-        return "external"
+    def classify_resolved(resolved: Path) -> str:
+        try:
+            relative = resolved.relative_to(project_root_resolved)
+        except ValueError:
+            return "external"
 
-    if len(relative.parts) >= 2 and relative.parts[0] == ".lake" and relative.parts[1] == "packages":
-        return "external"
+        if len(relative.parts) >= 2 and relative.parts[0] == ".lake" and relative.parts[1] == "packages":
+            return "external"
 
-    try:
-        resolved.relative_to(formalization_root)
-    except ValueError:
-        return "consumer"
-    return "upstream"
+        try:
+            resolved.relative_to(formalization_root)
+        except ValueError:
+            return "consumer"
+        return "upstream"
+
+    if path.is_absolute():
+        return classify_resolved(resolved_candidates[0])
+
+    fallback_owner = "consumer"
+    for resolved in resolved_candidates:
+        owner = classify_resolved(resolved)
+        if resolved.exists():
+            return owner
+        if owner == "external":
+            fallback_owner = "external"
+
+    return fallback_owner
 
 
 def collect_native_warning_records(
