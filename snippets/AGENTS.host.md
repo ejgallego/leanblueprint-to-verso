@@ -62,8 +62,11 @@
   optional extra checks such as `--node-kinds`, `--math-sanity`, or pages
   smoke test in one command.
 - Use `python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings <chapter.lean>`
-  when you also want Lean, Verso, and VersoBlueprint warnings to fail the
-  focused chapter build.
+  when you also want consumer-owned Lean, Verso, and VersoBlueprint warnings to
+  fail the focused chapter build while upstream and dependency warnings are
+  summarized separately.
+- Use `python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings --native-warnings-scope all <chapter.lean>`
+  when you want the stricter transitive warning-fail behavior.
 - Use `python3 tools/verso-harness/scripts/lt_audit.py --project-root . --no-native-warnings <chapter.lean>`
   to suppress warning-fail mode for one run when the repo default enables it.
 - After a coherent batch, run `bash ./scripts/ci-pages.sh`.

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -19,6 +20,15 @@ from _harnesslib import (  # noqa: E402
     resolve_project_root,
 )
 
+WARNING_WITH_POSITION_PATTERN = re.compile(
+    r"^(?P<path>.+?):(?P<line>\d+):(?P<column>\d+):\s+warning:\s*(?P<message>.*)$"
+)
+WARNING_WITH_PATH_PATTERN = re.compile(
+    r"^(?P<path>.+?):\s+warning:\s*(?P<message>.*)$"
+)
+WARNING_WITHOUT_PATH_PATTERN = re.compile(r"^warning:\s*(?P<message>.*)$")
+WARNING_SUMMARY_SAMPLE_LIMIT = 3
+
 
 @dataclass
 class StepResult:
@@ -31,6 +41,13 @@ class StepResult:
     @property
     def ok(self) -> bool:
         return self.returncode == 0
+
+
+@dataclass(frozen=True)
+class NativeWarningRecord:
+    line: str
+    raw_path: str | None
+    owner: str
 
 
 def run_step(project_root: Path, name: str, command: list[str]) -> StepResult:
@@ -50,28 +67,157 @@ def run_step(project_root: Path, name: str, command: list[str]) -> StepResult:
     )
 
 
-def print_step(result: StepResult) -> None:
-    status = "OK" if result.ok else "FAIL"
+def filtered_output_lines(text: str, skip_lines: set[str] | None = None) -> list[str]:
+    if not text:
+        return []
+    if not skip_lines:
+        return text.splitlines()
+    return [line for line in text.splitlines() if line.strip() not in skip_lines]
+
+
+def print_step(
+    result: StepResult,
+    *,
+    ok_override: bool | None = None,
+    skip_lines: set[str] | None = None,
+) -> None:
+    ok = result.ok if ok_override is None else ok_override
+    status = "OK" if ok else "FAIL"
     print(f"  [{status}] {result.name}")
     print(f"    $ {' '.join(result.command)}")
-    if result.stdout:
-        for line in result.stdout.splitlines():
-            print(f"    {line}")
-    if result.stderr:
-        for line in result.stderr.splitlines():
-            print(f"    stderr: {line}")
+    for line in filtered_output_lines(result.stdout, skip_lines):
+        print(f"    {line}")
+    for line in filtered_output_lines(result.stderr, skip_lines):
+        print(f"    stderr: {line}")
 
 
-def chapter_build_command(module: str, *, native_warnings: bool) -> list[str]:
-    command = ["nice", "lake"]
-    if native_warnings:
-        command.append("--wfail")
-    command.extend(["build", module])
-    return command
+def chapter_build_command(module: str) -> list[str]:
+    return ["nice", "lake", "build", module]
 
 
 def effective_native_warnings(config_default: bool, cli_override: bool | None) -> bool:
     return config_default if cli_override is None else cli_override
+
+
+def parse_warning_line(line: str) -> tuple[str | None, str] | None:
+    stripped = line.strip()
+    if not stripped:
+        return None
+    for pattern in (
+        WARNING_WITH_POSITION_PATTERN,
+        WARNING_WITH_PATH_PATTERN,
+        WARNING_WITHOUT_PATH_PATTERN,
+    ):
+        match = pattern.match(stripped)
+        if match is not None:
+            return match.groupdict().get("path"), stripped
+    return None
+
+
+def classify_warning_owner(
+    project_root: Path,
+    formalization_path: str,
+    raw_path: str | None,
+) -> str:
+    if raw_path is None:
+        return "consumer"
+
+    project_root_resolved = project_root.resolve()
+    formalization_root = (project_root / formalization_path).resolve()
+    path = Path(raw_path)
+    resolved = path.resolve() if path.is_absolute() else (project_root / path).resolve()
+
+    try:
+        relative = resolved.relative_to(project_root_resolved)
+    except ValueError:
+        return "external"
+
+    if len(relative.parts) >= 2 and relative.parts[0] == ".lake" and relative.parts[1] == "packages":
+        return "external"
+
+    try:
+        resolved.relative_to(formalization_root)
+    except ValueError:
+        return "consumer"
+    return "upstream"
+
+
+def collect_native_warning_records(
+    project_root: Path,
+    formalization_path: str,
+    result: StepResult,
+) -> list[NativeWarningRecord]:
+    records: list[NativeWarningRecord] = []
+    seen_lines: set[str] = set()
+    for text in (result.stdout, result.stderr):
+        for line in text.splitlines():
+            parsed = parse_warning_line(line)
+            if parsed is None:
+                continue
+            raw_path, rendered_line = parsed
+            if rendered_line in seen_lines:
+                continue
+            seen_lines.add(rendered_line)
+            records.append(
+                NativeWarningRecord(
+                    line=rendered_line,
+                    raw_path=raw_path,
+                    owner=classify_warning_owner(project_root, formalization_path, raw_path),
+                )
+            )
+    return records
+
+
+def warning_owner_groups(records: list[NativeWarningRecord]) -> dict[str, list[NativeWarningRecord]]:
+    groups = {
+        "consumer": [],
+        "upstream": [],
+        "external": [],
+    }
+    for record in records:
+        groups.setdefault(record.owner, []).append(record)
+    return groups
+
+
+def warning_record_is_failing(record: NativeWarningRecord, scope: str) -> bool:
+    return scope == "all" or record.owner == "consumer"
+
+
+def native_warning_check_ok(
+    result: StepResult,
+    records: list[NativeWarningRecord],
+    scope: str,
+) -> bool:
+    return result.ok and all(not warning_record_is_failing(record, scope) for record in records)
+
+
+def print_native_warning_summary(records: list[NativeWarningRecord], scope: str) -> None:
+    if not records:
+        return
+
+    groups = warning_owner_groups(records)
+    failing = sum(1 for record in records if warning_record_is_failing(record, scope))
+    print(
+        "    native warning summary: "
+        f"{len(records)} total, {failing} failing under {scope} scope"
+    )
+
+    labels = (
+        ("consumer", "consumer-owned"),
+        ("upstream", "upstream-transitive"),
+        ("external", "external-dependency"),
+    )
+    for owner, label in labels:
+        owner_records = groups[owner]
+        if not owner_records:
+            continue
+        outcome = "failing" if warning_record_is_failing(owner_records[0], scope) else "reported only"
+        print(f"      {label}: {len(owner_records)} ({outcome})")
+        for record in owner_records[:WARNING_SUMMARY_SAMPLE_LIMIT]:
+            print(f"        {record.line}")
+        omitted = len(owner_records) - WARNING_SUMMARY_SAMPLE_LIMIT
+        if omitted > 0:
+            print(f"        ... {omitted} more")
 
 
 def main() -> int:
@@ -137,9 +283,7 @@ def main() -> int:
         dest="native_warnings",
         action="store_true",
         help=(
-            "Fail the chapter build if Lean, Verso, or VersoBlueprint warnings are logged "
-            "during elaboration. Imported upstream warnings, including transitive "
-            "`declaration uses 'sorry'` reports, also count."
+            "Run the focused chapter build with native warning classification enabled."
         ),
     )
     native_warning_group.add_argument(
@@ -147,6 +291,16 @@ def main() -> int:
         dest="native_warnings",
         action="store_false",
         help="Do not fail the chapter build on native warning logs, even if enabled in verso-harness.toml.",
+    )
+    parser.add_argument(
+        "--native-warnings-scope",
+        choices=("consumer", "all"),
+        default="consumer",
+        help=(
+            "When native warning checks are enabled, fail on consumer-owned warnings only "
+            "(default) or on all warnings including vendored-formalization and external "
+            "dependency warnings."
+        ),
     )
     parser.set_defaults(native_warnings=None)
     args = parser.parse_args()
@@ -226,11 +380,31 @@ def main() -> int:
                 build_result = run_step(
                     project_root,
                     "chapter build"
-                    + (" + native warning check" if native_warnings else ""),
-                    chapter_build_command(module, native_warnings=native_warnings),
+                    + (
+                        f" + native warning check ({args.native_warnings_scope} scope)"
+                        if native_warnings
+                        else ""
+                    ),
+                    chapter_build_command(module),
                 )
-                print_step(build_result)
-                overall_ok &= build_result.ok
+                warning_records = (
+                    collect_native_warning_records(
+                        project_root,
+                        config.formalization_path,
+                        build_result,
+                    )
+                    if native_warnings
+                    else []
+                )
+                build_ok = native_warning_check_ok(
+                    build_result,
+                    warning_records,
+                    args.native_warnings_scope,
+                )
+                skip_warning_lines = {record.line for record in warning_records} if warning_records else None
+                print_step(build_result, ok_override=build_ok, skip_lines=skip_warning_lines)
+                print_native_warning_summary(warning_records, args.native_warnings_scope)
+                overall_ok &= build_ok
 
     if args.pages:
         print("\n== pages")

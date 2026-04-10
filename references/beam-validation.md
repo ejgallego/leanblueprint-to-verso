@@ -49,6 +49,7 @@ python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . path
 python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . --node-kinds path/to/Chapter.lean
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings path/to/Chapter.lean
+python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings --native-warnings-scope all path/to/Chapter.lean
 ```
 
 Site smoke test:

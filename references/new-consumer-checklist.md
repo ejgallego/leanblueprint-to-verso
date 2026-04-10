@@ -136,6 +136,7 @@ Override the repo default for one run when needed:
 
 ```bash
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings path/to/Chapter.lean
+python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings --native-warnings-scope all path/to/Chapter.lean
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . --no-native-warnings path/to/Chapter.lean
 ```
 

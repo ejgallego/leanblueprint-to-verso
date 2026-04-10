@@ -70,10 +70,10 @@ fail on Lean, Verso, or VersoBlueprint warnings. Generated consumers disable
 the noisy `VersoManual` inline-code line-length warning by default, so this is
 intended for math lint and other structural warning surfaces rather than prose
 formatting noise.
-Imported upstream warnings also count here. If the vendored formalization still
-emits transitive `declaration uses 'sorry'` warnings, treat a
-`--native-warnings` failure as upstream-only until that upstream warning debt is
-cleaned.
+By default this warning-fail mode only fails on consumer-owned warnings. The
+audit still prints separate summaries for vendored-formalization warnings and
+`.lake/packages` dependency warnings without failing the run for them.
+Use `--native-warnings-scope all` when you want full transitive warning failure.
 
 The default `lt_audit.py` native warning mode follows
 `harness.native_warnings` in `verso-harness.toml`, and generated consumers keep
