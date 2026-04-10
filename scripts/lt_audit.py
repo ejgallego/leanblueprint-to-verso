@@ -12,7 +12,12 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from _harnesslib import lean_file_to_module, resolve_chapter_paths, resolve_project_root  # noqa: E402
+from _harnesslib import (  # noqa: E402
+    lean_file_to_module,
+    load_config,
+    resolve_chapter_paths,
+    resolve_project_root,
+)
 
 
 @dataclass
@@ -55,6 +60,18 @@ def print_step(result: StepResult) -> None:
     if result.stderr:
         for line in result.stderr.splitlines():
             print(f"    stderr: {line}")
+
+
+def chapter_build_command(module: str, *, native_warnings: bool) -> list[str]:
+    command = ["nice", "lake"]
+    if native_warnings:
+        command.append("--wfail")
+    command.extend(["build", module])
+    return command
+
+
+def effective_native_warnings(config_default: bool, cli_override: bool | None) -> bool:
+    return config_default if cli_override is None else cli_override
 
 
 def main() -> int:
@@ -114,10 +131,29 @@ def main() -> int:
         action="store_true",
         help="Also run the conservative Verso math-delimiter checker on each touched chapter.",
     )
+    native_warning_group = parser.add_mutually_exclusive_group()
+    native_warning_group.add_argument(
+        "--native-warnings",
+        dest="native_warnings",
+        action="store_true",
+        help=(
+            "Fail the chapter build if Lean, Verso, or VersoBlueprint warnings are logged "
+            "during elaboration."
+        ),
+    )
+    native_warning_group.add_argument(
+        "--no-native-warnings",
+        dest="native_warnings",
+        action="store_false",
+        help="Do not fail the chapter build on native warning logs, even if enabled in verso-harness.toml.",
+    )
+    parser.set_defaults(native_warnings=None)
     args = parser.parse_args()
 
     project_root = resolve_project_root(args.project_root)
+    config = load_config(project_root)
     paths = resolve_chapter_paths(project_root, args.paths)
+    native_warnings = effective_native_warnings(config.native_warnings, args.native_warnings)
 
     if not paths:
         print("no chapter files selected for LT audit", file=sys.stderr)
@@ -188,8 +224,9 @@ def main() -> int:
             else:
                 build_result = run_step(
                     project_root,
-                    "chapter build",
-                    ["nice", "lake", "build", module],
+                    "chapter build"
+                    + (" + native warning check" if native_warnings else ""),
+                    chapter_build_command(module, native_warnings=native_warnings),
                 )
                 print_step(build_result)
                 overall_ok &= build_result.ok

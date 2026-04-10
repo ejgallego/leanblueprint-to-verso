@@ -98,7 +98,10 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint source to
 
 - After changing scripts, run at least the `--help` surface.
 - When changing LT similarity or grounding tooling, run:
+  - `python3 scripts/test_check_harness.py`
   - `python3 scripts/test_harness_config.py`
+  - `python3 scripts/test_harnesslib.py`
+  - `python3 scripts/test_lt_audit.py`
   - `python3 scripts/test_check_blueprint_node_kinds.py`
   - `python3 scripts/test_check_lt_similarity.py`
   - `python3 scripts/test_check_source_label_grounding.py`

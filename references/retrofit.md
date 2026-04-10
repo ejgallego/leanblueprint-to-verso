@@ -88,6 +88,8 @@ That part of the retrofit is review-driven on purpose.
 The generated `blueprint.yml` is a thin caller into the upstream
 `verso-blueprint` reusable Pages workflow, so rerun `update_ci.py` after
 bumping the helper submodule or changing the `VersoBlueprint` ref.
+Keep `lakefile.lean` aligned with any warning-policy fields added to
+`verso-harness.toml`; `check_harness.py` verifies that alignment.
 
 ## 8. Finish With A Coherent Validation Pass
 

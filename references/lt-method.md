@@ -64,3 +64,14 @@ python3 tools/verso-harness/scripts/check_verso_math_delimiters.py --project-roo
 Use `lt_audit.py --node-kinds --math-sanity` when you also want the focused
 chapter build, optional pages smoke test, the graph-visible node-kind check,
 and the conservative math-delimiter check.
+
+Use `lt_audit.py --native-warnings` when you want the focused chapter build to
+fail on Lean, Verso, or VersoBlueprint warnings. Generated consumers disable
+the noisy `VersoManual` inline-code line-length warning by default, so this is
+intended for math lint and other structural warning surfaces rather than prose
+formatting noise.
+
+The default `lt_audit.py` native warning mode follows
+`harness.native_warnings` in `verso-harness.toml`, and generated consumers keep
+`verso.blueprint.externalCode.strictResolve` aligned with
+`harness.strict_external_code`.

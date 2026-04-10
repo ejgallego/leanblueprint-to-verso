@@ -111,7 +111,12 @@ python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . pa
 python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . path/to/Chapter.lean
+python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings path/to/Chapter.lean
 ```
+
+The default `lt_audit.py` native warning behavior follows
+`harness.native_warnings` in `verso-harness.toml`. Use `--native-warnings` or
+`--no-native-warnings` to override it for one run.
 
 Treat low similarity scores as a triage signal, not as permission to rewrite
 freely. First ask whether the witness is too large, whether metadata drift is

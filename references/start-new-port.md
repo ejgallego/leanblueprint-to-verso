@@ -61,14 +61,16 @@ After the script finishes:
    real TeX source locator; some projects use a multi-file pattern such as
    `./blueprint/src/chapter/*.tex`, while others use a single file such as
    `./blueprint/src/chapter/main.tex`
-5. review `.github/workflows/blueprint.yml` and note that it is a thin caller
+5. review `verso-harness.toml` and confirm that `harness.native_warnings` and
+   `harness.strict_external_code` match the intended warning policy for the repo
+6. review `.github/workflows/blueprint.yml` and note that it is a thin caller
    pinned to the same `VersoBlueprint` ref declared in `lakefile.lean`
-6. create the first real source-backed chapter file under `chapter_root`
-7. set `lt.default_chapters` explicitly
-8. run `python3 tools/verso-harness/scripts/check_harness.py --project-root .`
-9. copy `tools/verso-harness/snippets/AGENTS.host.md` into `AGENTS.md`
-10. choose the first direct-port chapter from `lt.default_chapters`
-11. open Codex CLI and issue the first porting prompt for one coherent section of that chapter
+7. create the first real source-backed chapter file under `chapter_root`
+8. set `lt.default_chapters` explicitly
+9. run `python3 tools/verso-harness/scripts/check_harness.py --project-root .`
+10. copy `tools/verso-harness/snippets/AGENTS.host.md` into `AGENTS.md`
+11. choose the first direct-port chapter from `lt.default_chapters`
+12. open Codex CLI and issue the first porting prompt for one coherent section of that chapter
 
 ## Start-Port Prompt
 

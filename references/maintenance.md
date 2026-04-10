@@ -73,6 +73,10 @@ then decide whether only helper-owned files changed or whether project-owned fil
 
 If the helper changed template expectations rather than CI, port those changes
 manually into the project-owned files.
+In particular, keep `lakefile.lean` aligned with the warning policy declared in
+`verso-harness.toml`; `check_harness.py` verifies the generated
+`verso.blueprint.math.lint`, `verso.code.warnLineLength`, and
+`verso.blueprint.externalCode.strictResolve` settings.
 
 ## Adding New Blueprint Content
 
@@ -85,6 +89,7 @@ manually into the project-owned files.
   - `check_lt_similarity.py`
   - `check_blueprint_node_kinds.py`
   - `lt_audit.py`
+  - `lt_audit.py --native-warnings` when the repo wants warnings to fail the focused build
 
 ## Updating The Toolchain Or Dependencies
 

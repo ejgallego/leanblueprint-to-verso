@@ -3,6 +3,8 @@
 - This repo uses the local helper at `tools/verso-harness`.
 - Keep a root `verso-harness.toml` checked in and treat it as the source of
   truth for package layout, LT chapter scope, and the TeX source path.
+- Keep `lakefile.lean` aligned with that warning policy, especially
+  `harness.strict_external_code`.
 - Before porting or maintaining blueprint files, read:
   - `tools/verso-harness/references/layout.md`
   - `tools/verso-harness/references/lt-method.md`
@@ -46,6 +48,10 @@
 - Keep shared TeX macros in one `TeXPrelude.lean` module.
 - Prefer the harness pattern where `VersoBlueprint` drives the `verso`
   dependency unless this repo has a concrete reason to pin `verso` directly.
+- Generated consumers keep `verso.blueprint.math.lint` enabled, disable the
+  noisy `VersoManual` inline-code line-length warning, and default
+  `verso.blueprint.externalCode.strictResolve` from
+  `harness.strict_external_code`.
 - After editing direct-port chapters, run:
   - `python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . <chapter.lean>`
   - `python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . <chapter.lean>`
@@ -55,6 +61,11 @@
   when you want the source-pair check, similarity report, focused build, and
   optional extra checks such as `--node-kinds`, `--math-sanity`, or pages
   smoke test in one command.
+- Use `python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings <chapter.lean>`
+  when you also want Lean, Verso, and VersoBlueprint warnings to fail the
+  focused chapter build.
+- Use `python3 tools/verso-harness/scripts/lt_audit.py --project-root . --no-native-warnings <chapter.lean>`
+  to suppress warning-fail mode for one run when the repo default enables it.
 - After a coherent batch, run `bash ./scripts/ci-pages.sh`.
 - Keep the root build green. If a Lean link would pull in imports that are not
   harness-clean on the current toolchain, leave the node informal and note the

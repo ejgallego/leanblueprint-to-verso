@@ -17,6 +17,12 @@ VERSO_BLUEPRINT_REQUIRE_PATTERN = re.compile(
     r'^\s*require\s+VersoBlueprint\s+from\s+git\s+"(?P<url>[^"]+)"\s*@\s*"(?P<ref>[^"]+)"',
     re.M,
 )
+LAKE_BOOL_OPTION_PATTERN = re.compile(
+    r'⟨`(?P<name>[A-Za-z0-9_.]+),\s*(?P<value>true|false)\s*⟩'
+)
+LAKE_NAT_OPTION_PATTERN = re.compile(
+    r'⟨`(?P<name>[A-Za-z0-9_.]+),\s*\.ofNat\s+(?P<value>\d+)\s*⟩'
+)
 DEFAULT_LT_NODE_KIND_PAIRS = (
     ("theorem", "theorem"),
     ("definition", "definition"),
@@ -24,6 +30,8 @@ DEFAULT_LT_NODE_KIND_PAIRS = (
     ("corollary", "corollary"),
     ("proof", "proof"),
 )
+DEFAULT_NATIVE_WARNINGS = False
+DEFAULT_STRICT_EXTERNAL_CODE = True
 
 
 @dataclass(frozen=True)
@@ -35,6 +43,8 @@ class HarnessConfig:
     tex_source_glob: str
     lt_default_chapters: tuple[str, ...]
     lt_node_kind_pairs: tuple[tuple[str, str], ...]
+    native_warnings: bool
+    strict_external_code: bool
     non_port_chapters: tuple[str, ...]
 
 
@@ -75,6 +85,28 @@ def find_verso_blueprint_dependency(project_root: Path) -> tuple[str | None, str
     return repo, ref
 
 
+def find_lake_lean_option_bool(project_root: Path, option_name: str) -> bool | None:
+    lakefile = project_root / "lakefile.lean"
+    if not lakefile.exists():
+        return None
+
+    for match in LAKE_BOOL_OPTION_PATTERN.finditer(lakefile.read_text(encoding="utf-8")):
+        if match.group("name") == option_name:
+            return match.group("value") == "true"
+    return None
+
+
+def find_lake_lean_option_nat(project_root: Path, option_name: str) -> int | None:
+    lakefile = project_root / "lakefile.lean"
+    if not lakefile.exists():
+        return None
+
+    for match in LAKE_NAT_OPTION_PATTERN.finditer(lakefile.read_text(encoding="utf-8")):
+        if match.group("name") == option_name:
+            return int(match.group("value"))
+    return None
+
+
 def require_relative_path(value: str, field_name: str) -> str:
     if Path(value).is_absolute():
         raise SystemExit(f"{CONFIG_FILENAME}: {field_name} must be a relative path, got: {value!r}")
@@ -84,6 +116,13 @@ def require_relative_path(value: str, field_name: str) -> str:
 def require_string(table: dict[str, object], key: str, field_name: str) -> str:
     value = table.get(key)
     if not isinstance(value, str) or not value.strip():
+        raise SystemExit(f"{CONFIG_FILENAME}: missing or invalid {field_name}")
+    return value
+
+
+def require_bool(table: dict[str, object], key: str, field_name: str) -> bool:
+    value = table.get(key)
+    if not isinstance(value, bool):
         raise SystemExit(f"{CONFIG_FILENAME}: missing or invalid {field_name}")
     return value
 
@@ -201,6 +240,16 @@ def load_config(project_root: Path) -> HarnessConfig:
     harness_section = data.get("harness", {})
     if not isinstance(harness_section, dict):
         raise SystemExit(f"{CONFIG_FILENAME}: invalid [harness] table")
+    native_warnings = (
+        require_bool(harness_section, "native_warnings", "harness.native_warnings")
+        if "native_warnings" in harness_section
+        else DEFAULT_NATIVE_WARNINGS
+    )
+    strict_external_code = (
+        require_bool(harness_section, "strict_external_code", "harness.strict_external_code")
+        if "strict_external_code" in harness_section
+        else DEFAULT_STRICT_EXTERNAL_CODE
+    )
     non_port_chapters = (
         require_string_list(
             harness_section,
@@ -230,6 +279,8 @@ def load_config(project_root: Path) -> HarnessConfig:
         tex_source_glob=tex_source_glob,
         lt_default_chapters=lt_default_chapters,
         lt_node_kind_pairs=lt_node_kind_pairs,
+        native_warnings=native_warnings,
+        strict_external_code=strict_external_code,
         non_port_chapters=non_port_chapters,
     )
 

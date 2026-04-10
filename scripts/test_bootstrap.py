@@ -58,6 +58,9 @@ class BootstrapTests(unittest.TestCase):
             )
             lakefile = (root / 'lakefile.lean').read_text(encoding='utf-8')
             self.assertIn('@ "v4.28.0"', lakefile)
+            self.assertIn('⟨`verso.blueprint.math.lint, true⟩', lakefile)
+            self.assertIn('⟨`verso.blueprint.externalCode.strictResolve, true⟩', lakefile)
+            self.assertIn('⟨`verso.code.warnLineLength, .ofNat 0⟩', lakefile)
             self.assertEqual(
                 find_verso_blueprint_dependency(root),
                 ('leanprover/verso-blueprint', 'v4.28.0'),
@@ -87,6 +90,8 @@ class BootstrapTests(unittest.TestCase):
             chapter_dir = root / 'DemoBlueprint' / 'Chapters'
             if chapter_dir.exists():
                 self.assertEqual(list(chapter_dir.glob('*.lean')), [])
+            self.assertIn('native_warnings = false', config_text)
+            self.assertIn('strict_external_code = true', config_text)
 
             check = subprocess.run(
                 [

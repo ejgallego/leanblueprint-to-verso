@@ -13,7 +13,13 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from _harnesslib import CONFIG_FILENAME, find_package_name, load_config  # noqa: E402
+from _harnesslib import (  # noqa: E402
+    CONFIG_FILENAME,
+    find_lake_lean_option_bool,
+    find_lake_lean_option_nat,
+    find_package_name,
+    load_config,
+)
 
 
 PLACEHOLDER_PATTERN = re.compile(r"__[A-Z0-9_]+__")
@@ -72,6 +78,30 @@ def main() -> int:
         elif declared_package != config.package_name:
             mismatches.append(
                 f"lakefile package {declared_package!r} does not match {CONFIG_FILENAME} package_name {config.package_name!r}"
+            )
+
+        math_lint = find_lake_lean_option_bool(project_root, "verso.blueprint.math.lint")
+        if math_lint is not True:
+            mismatches.append(
+                "lakefile.lean must set `verso.blueprint.math.lint` to true in package leanOptions"
+            )
+
+        warn_line_length = find_lake_lean_option_nat(project_root, "verso.code.warnLineLength")
+        if warn_line_length != 0:
+            mismatches.append(
+                "lakefile.lean must set `verso.code.warnLineLength` to `.ofNat 0` in package leanOptions"
+            )
+
+        strict_external_code = find_lake_lean_option_bool(
+            project_root,
+            "verso.blueprint.externalCode.strictResolve",
+        )
+        if strict_external_code != config.strict_external_code:
+            expected = "true" if config.strict_external_code else "false"
+            mismatches.append(
+                "lakefile.lean must set "
+                f"`verso.blueprint.externalCode.strictResolve` to {expected} "
+                f"to match {CONFIG_FILENAME} harness.strict_external_code"
             )
 
         for relative in [

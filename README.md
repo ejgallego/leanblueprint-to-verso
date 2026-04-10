@@ -39,10 +39,11 @@ After that:
 1. review `verso-harness.toml`
 2. add your first real chapter file under `chapter_root`
 3. set `lt.default_chapters`
-4. run `python3 tools/verso-harness/scripts/check_harness.py --project-root .`
-5. copy `tools/verso-harness/snippets/AGENTS.host.md` into `AGENTS.md`
-6. choose the first direct-port chapter from `lt.default_chapters`
-7. open Codex CLI and issue the first porting prompt for one coherent section of that chapter
+4. review `harness.native_warnings` and `harness.strict_external_code`
+5. run `python3 tools/verso-harness/scripts/check_harness.py --project-root .`
+6. copy `tools/verso-harness/snippets/AGENTS.host.md` into `AGENTS.md`
+7. choose the first direct-port chapter from `lt.default_chapters`
+8. open Codex CLI and issue the first porting prompt for one coherent section of that chapter
 
 The startup flow intentionally does not generate synthetic chapter prose.
 `lt.default_chapters` is only for real source-backed direct-port chapters.
@@ -84,6 +85,7 @@ python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root
 python3 tools/verso-harness/scripts/check_source_label_grounding.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_verso_math_delimiters.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . path/to/Chapter.lean
+python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings path/to/Chapter.lean
 ```
 
 ## More Detailed Docs
@@ -109,6 +111,13 @@ Detailed porting workflow:
   `VersoBlueprint` ref used in `lakefile.lean`.
 - The helper chooses the matching `VersoBlueprint` branch from the Lean
   toolchain used by the upstream math project.
+- Generated consumers keep `verso.blueprint.math.lint` enabled and disable the
+  noisy `VersoManual` inline-code line-length warning via
+  `verso.code.warnLineLength := 0`.
+- Generated consumers also set
+  `verso.blueprint.externalCode.strictResolve` from the default harness
+  warning policy, and `check_harness.py` verifies that `lakefile.lean` stays
+  aligned with the declared `verso-harness.toml` settings.
 - Verso inline math opens with `$`` and closes with the final backtick alone.
   The malformed TeX-like pattern `$`...`$` must not be introduced while porting.
 - Generated `README.md` files are starting points only; after bootstrap they are

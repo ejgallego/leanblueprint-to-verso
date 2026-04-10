@@ -42,6 +42,11 @@ definition = "definition"
 lemma = "lemma_"
 corollary = "corollary"
 proof = "proof"
+
+[harness]
+native_warnings = false
+strict_external_code = true
+non_port_chapters = []
 ```
 
 Use the actual relative TeX source locator here. Some projects use a single
@@ -53,6 +58,11 @@ to extend the default theorem/definition/lemma/corollary/proof mapping.
 Do not seed the harness with synthetic chapter prose. Add real source-backed
 chapter files under `chapter_root`, then list those files in
 `lt.default_chapters` before starting LT work.
+The `[harness]` booleans are the shared warning policy surface. Keep
+`harness.strict_external_code` aligned with the generated `lakefile.lean`
+setting `verso.blueprint.externalCode.strictResolve`, and use
+`harness.native_warnings` to control the default `lt_audit.py` warning-fail
+mode for focused chapter builds.
 
 Use explicit chapter paths. Do not rely on helper-side discovery heuristics.
 For new ports, do not choose the Lean toolchain independently: the upstream
@@ -120,6 +130,13 @@ Use the one-shot combined command when useful:
 
 ```bash
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . path/to/Chapter.lean
+```
+
+Override the repo default for one run when needed:
+
+```bash
+python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings path/to/Chapter.lean
+python3 tools/verso-harness/scripts/lt_audit.py --project-root . --no-native-warnings path/to/Chapter.lean
 ```
 
 ## 8. Run The Site Smoke Test

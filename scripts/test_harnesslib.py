@@ -11,7 +11,12 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from _harnesslib import find_verso_blueprint_dependency, parse_github_repo_slug  # noqa: E402
+from _harnesslib import (  # noqa: E402
+    find_lake_lean_option_bool,
+    find_lake_lean_option_nat,
+    find_verso_blueprint_dependency,
+    parse_github_repo_slug,
+)
 
 
 class HarnessLibTests(unittest.TestCase):
@@ -52,6 +57,29 @@ class HarnessLibTests(unittest.TestCase):
     def test_find_verso_blueprint_dependency_handles_missing_lakefile(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(find_verso_blueprint_dependency(Path(tmp)), (None, None))
+
+    def test_find_lake_lean_option_helpers_read_generated_policy_options(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "lakefile.lean").write_text(
+                '\n'.join(
+                    [
+                        'package DemoBlueprint where',
+                        '  leanOptions := #[',
+                        '    ⟨`verso.blueprint.math.lint, true⟩,',
+                        '    ⟨`verso.blueprint.externalCode.strictResolve, false⟩,',
+                        '    ⟨`verso.code.warnLineLength, .ofNat 0⟩',
+                        '  ]',
+                    ]
+                )
+                + '\n',
+                encoding='utf-8',
+            )
+            self.assertTrue(find_lake_lean_option_bool(root, "verso.blueprint.math.lint"))
+            self.assertFalse(
+                find_lake_lean_option_bool(root, "verso.blueprint.externalCode.strictResolve")
+            )
+            self.assertEqual(find_lake_lean_option_nat(root, "verso.code.warnLineLength"), 0)
 
 
 if __name__ == "__main__":

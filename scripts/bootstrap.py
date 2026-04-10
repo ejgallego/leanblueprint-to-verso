@@ -164,6 +164,7 @@ def main() -> int:
         "__TEX_SOURCE_GLOB__": args.tex_source_glob,
         "__LEAN_TOOLCHAIN__": lean_toolchain,
         "__VERSO_BLUEPRINT_REF__": verso_blueprint_ref,
+        "__STRICT_EXTERNAL_CODE__": "true",
         "__PAGES_WORKFLOW_REPO__": pages_workflow_repo,
         "__PAGES_WORKFLOW_REF__": pages_workflow_ref,
     }
