@@ -80,7 +80,9 @@ class HarnessConfigTests(unittest.TestCase):
             config_path = root / 'verso-harness.toml'
             config_path.write_text(
                 config_path.read_text(encoding='utf-8')
-                + 'native_warnings = true\nstrict_external_code = false\n',
+                + '\n[harness]\n'
+                + 'native_warnings = true\n'
+                + 'strict_external_code = false\n',
                 encoding='utf-8',
             )
             config = load_config(root)
