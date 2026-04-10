@@ -57,7 +57,7 @@ def ensure_executable(path: Path) -> None:
 
 
 def default_pages_workflow_repo() -> str:
-    repo = parse_github_repo_slug("https://github.com/ejgallego/verso-blueprint.git")
+    repo = parse_github_repo_slug("https://github.com/leanprover/verso-blueprint.git")
     if repo is None:
         raise SystemExit("internal error: failed to resolve default Pages workflow repo")
     return repo

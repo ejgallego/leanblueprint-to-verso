@@ -25,7 +25,7 @@ class UpdateCiTests(unittest.TestCase):
                         'open Lake DSL',
                         '',
                         'require Demo from "./Demo"',
-                        'require VersoBlueprint from git "https://github.com/ejgallego/verso-blueprint.git" @ "v4.28.0"',
+                        'require VersoBlueprint from git "https://github.com/leanprover/verso-blueprint.git" @ "v4.28.0"',
                         '',
                         'package DemoBlueprint where',
                     ]
@@ -51,7 +51,7 @@ class UpdateCiTests(unittest.TestCase):
             workflow_text = workflow_path.read_text(encoding="utf-8")
             self.assertNotIn("__PAGES_WORKFLOW_", workflow_text)
             self.assertIn(
-                "uses: ejgallego/verso-blueprint/.github/workflows/blueprint-pages.yml@v4.28.0",
+                "uses: leanprover/verso-blueprint/.github/workflows/blueprint-pages.yml@v4.28.0",
                 workflow_text,
             )
             self.assertIn("checkout_submodules: true", workflow_text)

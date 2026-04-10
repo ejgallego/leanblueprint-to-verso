@@ -64,7 +64,7 @@ class StartNewPortTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn('lean-toolchain: leanprover/lean4:v4.28.0', result.stdout)
             self.assertIn('VersoBlueprint ref: v4.28.0', result.stdout)
-            self.assertIn('Pages workflow repo: ejgallego/verso-blueprint', result.stdout)
+            self.assertIn('Pages workflow repo: leanprover/verso-blueprint', result.stdout)
             self.assertIn('Pages workflow ref: v4.28.0', result.stdout)
             self.assertTrue((project / '.git').exists())
             self.assertTrue((project / '.gitmodules').exists())
@@ -77,14 +77,14 @@ class StartNewPortTests(unittest.TestCase):
             self.assertIn('@ "v4.28.0"', lakefile)
             self.assertEqual(
                 find_verso_blueprint_dependency(project),
-                ('ejgallego/verso-blueprint', 'v4.28.0'),
+                ('leanprover/verso-blueprint', 'v4.28.0'),
             )
             self.assertTrue((project / 'README.md').exists())
             workflow_text = (project / '.github' / 'workflows' / 'blueprint.yml').read_text(
                 encoding='utf-8'
             )
             self.assertIn(
-                'uses: ejgallego/verso-blueprint/.github/workflows/blueprint-pages.yml@v4.28.0',
+                'uses: leanprover/verso-blueprint/.github/workflows/blueprint-pages.yml@v4.28.0',
                 workflow_text,
             )
             self.assertIn('checkout_submodules: true', workflow_text)
