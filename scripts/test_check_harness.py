@@ -28,6 +28,7 @@ def write_harness_project(
     lean_toolchain: str,
     verso_ref: str,
     math_lint_option: str,
+    warn_line_length_option: str,
     strict_external_code: bool,
     strict_external_code_option: str,
     lake_strict_external_code: bool,
@@ -68,7 +69,7 @@ def write_harness_project(
                 "  leanOptions := #[",
                 f"    ⟨`{math_lint_option}, true⟩,",
                 f"    ⟨`{strict_external_code_option}, {'true' if lake_strict_external_code else 'false'}⟩,",
-                "    ⟨`verso.code.warnLineLength, .ofNat 0⟩",
+                f"    ⟨`{warn_line_length_option}, .ofNat 0⟩",
                 "  ]",
                 "",
                 "@[default_target]",
@@ -123,6 +124,7 @@ class CheckHarnessTests(unittest.TestCase):
                 lean_toolchain="leanprover/lean4:v4.28.0",
                 verso_ref="v4.28.0",
                 math_lint_option="weak.verso.blueprint.math.lint",
+                warn_line_length_option="weak.verso.code.warnLineLength",
                 strict_external_code=True,
                 strict_external_code_option="weak.verso.blueprint.externalCode.strictResolve",
                 lake_strict_external_code=True,
@@ -131,16 +133,17 @@ class CheckHarnessTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("status: ok", result.stdout)
 
-    def test_check_harness_accepts_strong_policy_for_newer_refs(self) -> None:
+    def test_check_harness_accepts_weak_policy_for_v429(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_harness_project(
                 root,
                 lean_toolchain="leanprover/lean4:v4.29.0",
                 verso_ref="v4.29.0",
-                math_lint_option="verso.blueprint.math.lint",
+                math_lint_option="weak.verso.blueprint.math.lint",
+                warn_line_length_option="weak.verso.code.warnLineLength",
                 strict_external_code=True,
-                strict_external_code_option="verso.blueprint.externalCode.strictResolve",
+                strict_external_code_option="weak.verso.blueprint.externalCode.strictResolve",
                 lake_strict_external_code=True,
             )
             result = run_check(root)
@@ -155,6 +158,7 @@ class CheckHarnessTests(unittest.TestCase):
                 lean_toolchain="leanprover/lean4:v4.28.0",
                 verso_ref="v4.28.0",
                 math_lint_option="weak.verso.blueprint.math.lint",
+                warn_line_length_option="weak.verso.code.warnLineLength",
                 strict_external_code=True,
                 strict_external_code_option="weak.verso.blueprint.externalCode.strictResolve",
                 lake_strict_external_code=False,

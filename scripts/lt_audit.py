@@ -26,6 +26,9 @@ WARNING_WITH_POSITION_PATTERN = re.compile(
 WARNING_WITH_PATH_PATTERN = re.compile(
     r"^(?P<path>.+?):\s+warning:\s*(?P<message>.*)$"
 )
+WARNING_PREFIXED_POSITION_PATTERN = re.compile(
+    r"^warning:\s*(?P<path>.+?):(?P<line>\d+):(?P<column>\d+):\s*(?P<message>.*)$"
+)
 WARNING_WITHOUT_PATH_PATTERN = re.compile(r"^warning:\s*(?P<message>.*)$")
 WARNING_SUMMARY_SAMPLE_LIMIT = 3
 
@@ -106,6 +109,7 @@ def parse_warning_line(line: str) -> tuple[str | None, str] | None:
     for pattern in (
         WARNING_WITH_POSITION_PATTERN,
         WARNING_WITH_PATH_PATTERN,
+        WARNING_PREFIXED_POSITION_PATTERN,
         WARNING_WITHOUT_PATH_PATTERN,
     ):
         match = pattern.match(stripped)

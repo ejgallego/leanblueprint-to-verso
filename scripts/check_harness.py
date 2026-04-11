@@ -22,6 +22,7 @@ from _harnesslib import (  # noqa: E402
     load_config,
     verso_math_lint_option_name,
     verso_strict_external_code_option_name,
+    verso_warn_line_length_option_name,
 )
 
 
@@ -86,6 +87,7 @@ def main() -> int:
         _, verso_ref = find_verso_blueprint_dependency(project_root)
         math_lint_option = verso_math_lint_option_name(verso_ref)
         strict_external_code_option = verso_strict_external_code_option_name(verso_ref)
+        warn_line_length_option = verso_warn_line_length_option_name(verso_ref)
 
         math_lint = find_lake_lean_option_bool(project_root, math_lint_option)
         if math_lint is not True:
@@ -93,10 +95,10 @@ def main() -> int:
                 f"lakefile.lean must set `{math_lint_option}` to true in package leanOptions"
             )
 
-        warn_line_length = find_lake_lean_option_nat(project_root, "verso.code.warnLineLength")
+        warn_line_length = find_lake_lean_option_nat(project_root, warn_line_length_option)
         if warn_line_length != 0:
             mismatches.append(
-                "lakefile.lean must set `verso.code.warnLineLength` to `.ofNat 0` in package leanOptions"
+                f"lakefile.lean must set `{warn_line_length_option}` to `.ofNat 0` in package leanOptions"
             )
 
         strict_external_code = find_lake_lean_option_bool(

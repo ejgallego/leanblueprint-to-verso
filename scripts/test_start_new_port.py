@@ -77,7 +77,7 @@ class StartNewPortTests(unittest.TestCase):
             self.assertIn('@ "v4.28.0"', lakefile)
             self.assertIn('⟨`weak.verso.blueprint.math.lint, true⟩', lakefile)
             self.assertIn('⟨`weak.verso.blueprint.externalCode.strictResolve, true⟩', lakefile)
-            self.assertIn('⟨`verso.code.warnLineLength, .ofNat 0⟩', lakefile)
+            self.assertIn('⟨`weak.verso.code.warnLineLength, .ofNat 0⟩', lakefile)
             self.assertEqual(
                 find_verso_blueprint_dependency(project),
                 ('leanprover/verso-blueprint', 'v4.28.0'),

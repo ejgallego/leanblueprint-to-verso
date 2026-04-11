@@ -19,6 +19,7 @@ from _harnesslib import (  # noqa: E402
     parse_github_repo_slug,
     verso_math_lint_option_name,
     verso_strict_external_code_option_name,
+    verso_warn_line_length_option_name,
 )
 
 
@@ -81,12 +82,24 @@ class HarnessLibTests(unittest.TestCase):
             "weak.verso.blueprint.externalCode.strictResolve",
         )
         self.assertEqual(
+            verso_warn_line_length_option_name("v4.28.0"),
+            "weak.verso.code.warnLineLength",
+        )
+        self.assertEqual(
             verso_math_lint_option_name("v4.29.0"),
-            "verso.blueprint.math.lint",
+            "weak.verso.blueprint.math.lint",
         )
         self.assertEqual(
             verso_strict_external_code_option_name("v4.29.0"),
-            "verso.blueprint.externalCode.strictResolve",
+            "weak.verso.blueprint.externalCode.strictResolve",
+        )
+        self.assertEqual(
+            verso_warn_line_length_option_name("v4.29.0"),
+            "weak.verso.code.warnLineLength",
+        )
+        self.assertEqual(
+            verso_math_lint_option_name("main"),
+            "verso.blueprint.math.lint",
         )
 
     def test_find_lake_lean_option_helpers_read_generated_policy_options(self) -> None:
@@ -99,7 +112,7 @@ class HarnessLibTests(unittest.TestCase):
                         '  leanOptions := #[',
                         '    ⟨`weak.verso.blueprint.math.lint, true⟩,',
                         '    ⟨`weak.verso.blueprint.externalCode.strictResolve, false⟩,',
-                        '    ⟨`verso.code.warnLineLength, .ofNat 0⟩',
+                        '    ⟨`weak.verso.code.warnLineLength, .ofNat 0⟩',
                         '  ]',
                     ]
                 )
@@ -113,7 +126,7 @@ class HarnessLibTests(unittest.TestCase):
                     "weak.verso.blueprint.externalCode.strictResolve",
                 )
             )
-            self.assertEqual(find_lake_lean_option_nat(root, "verso.code.warnLineLength"), 0)
+            self.assertEqual(find_lake_lean_option_nat(root, "weak.verso.code.warnLineLength"), 0)
 
 
 if __name__ == "__main__":

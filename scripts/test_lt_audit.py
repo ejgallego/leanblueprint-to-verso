@@ -95,6 +95,13 @@ class LtAuditTests(unittest.TestCase):
             ("DemoBlueprint/Chapters/Intro.lean", "DemoBlueprint/Chapters/Intro.lean:12:3: warning: demo"),
         )
         self.assertEqual(
+            parse_warning_line("warning: Noperthedron/SolutionTable/Basic.lean:20:4: declaration uses `sorry`"),
+            (
+                "Noperthedron/SolutionTable/Basic.lean",
+                "warning: Noperthedron/SolutionTable/Basic.lean:20:4: declaration uses `sorry`",
+            ),
+        )
+        self.assertEqual(
             parse_warning_line("warning: declaration uses 'sorry'"),
             (None, "warning: declaration uses 'sorry'"),
         )
@@ -267,6 +274,34 @@ class LtAuditTests(unittest.TestCase):
             self.assertEqual(result, 0, msg=output)
             self.assertIn("native warning summary: 1 total, 0 failing under consumer scope", output)
             self.assertIn("upstream-transitive: 1 (reported only)", output)
+            self.assertIn("Overall: OK", output)
+
+    def test_main_treats_warning_prefixed_formalization_paths_as_upstream(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter_path = self.make_project(root, formalization_path="Noperthedron")
+            write_file(
+                root / "Noperthedron" / "SolutionTable" / "Basic.lean",
+                "theorem demo : True := by trivial\n",
+            )
+            warning_text = "warning: Noperthedron/SolutionTable/Basic.lean:20:4: declaration uses `sorry`"
+            argv = [
+                "lt_audit.py",
+                "--project-root",
+                str(root),
+                "--native-warnings",
+                str(chapter_path),
+            ]
+            with patch("lt_audit.run_step", side_effect=self.fake_run_step(warning_text)):
+                with patch.object(sys, "argv", argv):
+                    stdout = io.StringIO()
+                    with contextlib.redirect_stdout(stdout):
+                        result = lt_audit.main()
+            output = stdout.getvalue()
+            self.assertEqual(result, 0, msg=output)
+            self.assertIn("native warning summary: 1 total, 0 failing under consumer scope", output)
+            self.assertIn("upstream-transitive: 1 (reported only)", output)
+            self.assertNotIn("consumer-owned: 1 (failing)", output)
             self.assertIn("Overall: OK", output)
 
     def test_main_can_fail_transitively_in_all_scope(self) -> None:

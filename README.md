@@ -114,7 +114,7 @@ Detailed porting workflow:
   toolchain used by the upstream math project.
 - Generated consumers keep the version-appropriate Verso math-lint option
   enabled and disable the noisy `VersoManual` inline-code line-length warning
-  via `verso.code.warnLineLength := 0`.
+  via the version-appropriate warn-line-length option set to `0`.
 - Generated consumers also set
   the version-appropriate strict-resolve option from the default harness
   warning policy, and `check_harness.py` verifies that `lakefile.lean` stays

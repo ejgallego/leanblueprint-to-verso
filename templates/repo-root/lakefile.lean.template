@@ -14,7 +14,7 @@ package __PACKAGE_NAME__ where
     ⟨`maxSynthPendingDepth, .ofNat 3⟩,
     ⟨`__VERSO_MATH_LINT_OPTION__, true⟩,
     ⟨`__VERSO_STRICT_EXTERNAL_CODE_OPTION__, __STRICT_EXTERNAL_CODE__⟩,
-    ⟨`verso.code.warnLineLength, .ofNat 0⟩
+    ⟨`__VERSO_WARN_LINE_LENGTH_OPTION__, .ofNat 0⟩
   ]
 
 @[default_target]

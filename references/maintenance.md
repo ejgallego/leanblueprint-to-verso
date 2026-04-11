@@ -76,7 +76,7 @@ manually into the project-owned files.
 In particular, keep `lakefile.lean` aligned with the warning policy declared in
 `verso-harness.toml`; `check_harness.py` verifies the generated
 version-appropriate math-lint and strict-resolve lean options together with the
-shared `verso.code.warnLineLength` setting.
+version-appropriate warn-line-length setting.
 
 ## Adding New Blueprint Content
 

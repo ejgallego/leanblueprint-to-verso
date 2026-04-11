@@ -13,6 +13,7 @@ from _harnesslib import (
     parse_github_repo_slug,
     verso_math_lint_option_name,
     verso_strict_external_code_option_name,
+    verso_warn_line_length_option_name,
 )
 
 
@@ -153,6 +154,7 @@ def main() -> int:
     pages_workflow_ref = args.pages_workflow_ref or verso_blueprint_ref
     math_lint_option = verso_math_lint_option_name(verso_blueprint_ref)
     strict_external_code_option = verso_strict_external_code_option_name(verso_blueprint_ref)
+    warn_line_length_option = verso_warn_line_length_option_name(verso_blueprint_ref)
 
     replacements = {
         "__PACKAGE_NAME__": args.package_name,
@@ -164,6 +166,7 @@ def main() -> int:
         "__VERSO_BLUEPRINT_REF__": verso_blueprint_ref,
         "__VERSO_MATH_LINT_OPTION__": math_lint_option,
         "__VERSO_STRICT_EXTERNAL_CODE_OPTION__": strict_external_code_option,
+        "__VERSO_WARN_LINE_LENGTH_OPTION__": warn_line_length_option,
         "__STRICT_EXTERNAL_CODE__": "true",
         "__PAGES_WORKFLOW_REPO__": pages_workflow_repo,
         "__PAGES_WORKFLOW_REF__": pages_workflow_ref,

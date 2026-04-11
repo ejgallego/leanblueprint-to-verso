@@ -32,7 +32,7 @@ DEFAULT_LT_NODE_KIND_PAIRS = (
 )
 DEFAULT_NATIVE_WARNINGS = False
 DEFAULT_STRICT_EXTERNAL_CODE = True
-WEAK_VERSO_OPTION_REFS = frozenset({"v4.28.0"})
+WEAK_VERSO_OPTION_REFS = frozenset({"v4.28.0", "v4.29.0"})
 
 
 @dataclass(frozen=True)
@@ -112,6 +112,10 @@ def verso_math_lint_option_name(ref: str | None) -> str:
 
 def verso_strict_external_code_option_name(ref: str | None) -> str:
     return verso_blueprint_option_name(ref, "blueprint.externalCode.strictResolve")
+
+
+def verso_warn_line_length_option_name(ref: str | None) -> str:
+    return verso_blueprint_option_name(ref, "code.warnLineLength")
 
 
 def find_verso_blueprint_dependency(project_root: Path) -> tuple[str | None, str | None]:
