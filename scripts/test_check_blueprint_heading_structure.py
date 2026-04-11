@@ -22,9 +22,6 @@ def write_config(root: Path, default_chapters: list[str]) -> None:
         '[lt]',
         f'default_chapters = [{", ".join(repr(path) for path in default_chapters)}]',
         '',
-        '[harness]',
-        'non_port_chapters = []',
-        '',
     ]
     (root / 'verso-harness.toml').write_text('\n'.join(lines), encoding='utf-8')
 

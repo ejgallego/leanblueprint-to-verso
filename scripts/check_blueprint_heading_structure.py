@@ -19,6 +19,7 @@ from check_lt_source_pairs import Block, parse_blocks  # noqa: E402
 SECTION_COMMAND_RE = re.compile(r"\\(section|subsection|subsubsection)\b")
 MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]+\)")
 VERSO_CODE_RE = re.compile(r"`([^`]+)`")
+VERSO_INLINE_MATH_RE = re.compile(r"\$`([^`]*)`")
 TEX_TEXORPDF_RE = re.compile(r"\\texorpdfstring\{([^{}]*)\}\{([^{}]*)\}")
 TEX_MATH_RE = re.compile(r"\$([^$]*)\$")
 TEX_CMD_ARG_RE = re.compile(r"\\[A-Za-z]+\*?(?:\[[^\]]*\])?\{([^{}]*)\}")
@@ -135,6 +136,7 @@ def normalize_common(text: str) -> str:
 
 def normalize_verso_heading(text: str) -> str:
     text = MARKDOWN_LINK_RE.sub(r" \1 ", text)
+    text = VERSO_INLINE_MATH_RE.sub(r" \1 ", text)
     text = VERSO_CODE_RE.sub(r" \1 ", text)
     return normalize_common(text)
 
