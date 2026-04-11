@@ -75,6 +75,15 @@ direct-port LT scope and populate it only with real source-backed chapter files.
 - When the TeX source has `\uses{...}`, preserve those edges as
   `{uses "..."}[]` references inside the relevant node or proof rather than in
   free prose.
+- When a standalone line would otherwise consist only of consecutive
+  `{uses "..."}[]` references, rewrite it deterministically as a sentence that
+  starts with `Uses`.
+- Use exactly `Uses {uses "..."}[].` for one edge, `Uses {uses "..."}[] and
+  {uses "..."}[].` for two edges, and `Uses {uses "..."}[], {uses "..."}[],
+  and {uses "..."}[].` for three or more edges.
+- Do not paraphrase, reorder, or integrate those standalone `Uses ...` lines
+  into surrounding prose; this is a presentation-only normalization that
+  applies equally to statements and proofs.
 - Do not treat metadata cleanup as LT completion. First localize the text with
   a source witness, then tighten `(lean := "...")` and `{uses "..."}[]`.
 

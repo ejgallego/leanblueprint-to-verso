@@ -55,6 +55,15 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint source to
 - Preserve TeX `\uses{...}` edges as Verso `{uses "..."}[]` references inside
   the relevant theorem, definition, or proof nodes rather than leaving them in
   free prose.
+- When a standalone line would otherwise consist only of consecutive
+  `{uses "..."}[]` references, rewrite it deterministically as a sentence that
+  starts with `Uses`.
+- Use exactly `Uses {uses "..."}[].` for one edge, `Uses {uses "..."}[] and
+  {uses "..."}[].` for two edges, and `Uses {uses "..."}[], {uses "..."}[],
+  and {uses "..."}[].` for three or more edges.
+- Do not paraphrase, reorder, or integrate those standalone `Uses ...` lines
+  into surrounding prose; this is a presentation-only normalization that
+  applies equally to statements and proofs.
 - Keep prose as prose unless the source really gives a graph-visible theorem,
   definition, lemma, corollary, or proof-style object.
 - Preserve TeX environment kind faithfully. Use `:::lemma_` for source lemmas,

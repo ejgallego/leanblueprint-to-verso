@@ -26,6 +26,15 @@ Faithfulness`) are accepted aliases for the same workflow.
 - Do not use `:::theorem` as a generic wrapper for theorem-like source blocks.
 - Preserve TeX `\uses{...}` edges when they carry real dependency meaning, but
   do not invent new dependency edges just to improve graph shape.
+- When a standalone line would otherwise consist only of consecutive
+  `{uses "..."}[]` references, rewrite it deterministically as a sentence that
+  starts with `Uses`.
+- Use exactly `Uses {uses "..."}[].` for one edge, `Uses {uses "..."}[] and
+  {uses "..."}[].` for two edges, and `Uses {uses "..."}[], {uses "..."}[],
+  and {uses "..."}[].` for three or more edges.
+- Do not paraphrase, reorder, or integrate those standalone `Uses ...` lines
+  into surrounding prose; this is a presentation-only normalization that
+  applies equally to statements and proofs.
 - Treat metadata cleanup as a second phase of LT rather than as a substitute
   for LT. First pair the text with a source witness, then tighten
   `(lean := "...")` and `{uses "..."}[]`.
