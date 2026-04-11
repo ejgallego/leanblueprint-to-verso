@@ -75,6 +75,24 @@ Alpha.
         self.assertEqual(score.tex_lean, {"Baz.qux", "Demo.quux"})
         self.assertEqual(score.metadata_diff_count, 0)
 
+    def test_standalone_uses_lines_are_ignored_in_similarity(self) -> None:
+        cases = [
+            'Uses {uses "foo"}[].',
+            'Uses {uses "foo"}[] and {uses "bar"}[].',
+            'Uses {uses "foo"}[], {uses "bar"}[], and {uses "baz"}[].',
+        ]
+        tex = tex_block(
+            r"""
+\uses{foo, bar, baz}
+Alpha.
+""".strip()
+        )
+        for body in cases:
+            with self.subTest(body=body):
+                verso = verso_block(f"Alpha.\n{body}")
+                score = score_pair(verso, tex)
+                self.assertGreaterEqual(score.token_ratio, 0.99)
+
     def test_refs_are_reported_as_hints_not_uses(self) -> None:
         verso = verso_block("Alpha.")
         tex = tex_block(

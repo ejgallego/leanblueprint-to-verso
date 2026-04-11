@@ -155,6 +155,15 @@ class PairScore:
 MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]+\)")
 USES_RE = re.compile(r'\{uses "[^"]+"\}\[\]')
 USES_CAPTURE_RE = re.compile(r'\{uses "([^"]+)"\}\[\]')
+USES_LINE_RE = re.compile(
+    r'(?m)^[ \t]*Uses (?:'
+    r'\{uses "[^"]+"\}\[\]'
+    r'|'
+    r'\{uses "[^"]+"\}\[\] and \{uses "[^"]+"\}\[\]'
+    r'|'
+    r'\{uses "[^"]+"\}\[\](?:, \{uses "[^"]+"\}\[\])+, and \{uses "[^"]+"\}\[\]'
+    r')\.[ \t]*$'
+)
 CITE_RE = re.compile(r"\{[^{}]*cite[^{}]*\}\[\]")
 INLINE_TAG_RE = re.compile(r"\{[^{}]+\}\[\]")
 TEX_COMMENT_RE = re.compile(r"(?<!\\)%.*$")
@@ -207,6 +216,7 @@ def block_body(block: Block) -> str:
 
 
 def normalize_verso(text: str) -> str:
+    text = USES_LINE_RE.sub(" ", text)
     text = MARKDOWN_LINK_RE.sub(r" \1 ", text)
     text = USES_RE.sub(" ", text)
     text = CITE_RE.sub(" ", text)
