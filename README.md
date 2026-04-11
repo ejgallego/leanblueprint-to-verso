@@ -87,6 +87,7 @@ python3 tools/verso-harness/scripts/check_verso_math_delimiters.py --project-roo
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings path/to/Chapter.lean
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings --native-warnings-scope all path/to/Chapter.lean
+python3 tools/verso-harness/scripts/status_completion.py --project-root . --build
 ```
 
 ## More Detailed Docs

@@ -11,6 +11,12 @@ python3 tools/verso-harness/scripts/status_harness.py --project-root .
 Use that status view to see whether the helper checkout, the vendored
 formalization, or the resolved `VersoBlueprint` package have moved before you
 start updating files.
+For repo-level chapter completion status, use:
+
+```bash
+python3 tools/verso-harness/scripts/status_completion.py --project-root .
+python3 tools/verso-harness/scripts/status_completion.py --project-root . --build
+```
 
 ## Routine Tasks
 
