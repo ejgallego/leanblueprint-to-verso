@@ -202,6 +202,7 @@ TEX_REF_CAPTURE_RE = re.compile(r"\\(?:[Cc]?ref)\{([^{}]*)\}")
 TEX_LABEL_CAPTURE_RE = re.compile(r"\\label\{([^{}]*)\}")
 TEX_ENV_CAPTURE_RE = re.compile(r"\\begin\{(theorem|lemma|corollary|definition|proof|remark)\}")
 VERSO_LEAN_CAPTURE_RE = re.compile(r'lean := "([^"]+)"')
+TEX_HEADER_LABEL_RE = re.compile(r'^tex\s+"([^"]+)"(?:\s|$)')
 NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -356,6 +357,11 @@ def extract_tex_labels(text: str) -> set[str]:
     return {match.group(1).strip() for match in TEX_LABEL_CAPTURE_RE.finditer(stripped)}
 
 
+def extract_tex_header_label(header: str) -> str | None:
+    match = TEX_HEADER_LABEL_RE.match(header.strip())
+    return match.group(1).strip() if match else None
+
+
 def extract_tex_env_kind(text: str) -> str | None:
     stripped = strip_tex_comments(text)
     match = TEX_ENV_CAPTURE_RE.search(stripped)
@@ -392,6 +398,11 @@ def score_pair(block: Block, tex: Block) -> PairScore:
     tex_body = block_body(tex)
     verso_text = normalize_verso(verso_body)
     tex_text = normalize_tex(tex_body)
+    verso_header_id = extract_verso_header_id(block.header, block.kind)
+    tex_labels = extract_tex_labels(tex_body)
+    tex_header_label = extract_tex_header_label(tex.header)
+    if tex_header_label is not None and tex_header_label == verso_header_id:
+        tex_labels.add(tex_header_label)
     return PairScore(
         block=block,
         tex=tex,
@@ -405,12 +416,12 @@ def score_pair(block: Block, tex: Block) -> PairScore:
         tex_uses=extract_tex_uses(tex_body),
         verso_lean=extract_verso_lean(block.header),
         tex_lean=extract_tex_lean(tex_body),
-        tex_labels=extract_tex_labels(tex_body),
+        tex_labels=tex_labels,
         tex_refs=extract_tex_refs(tex_body),
         tex_env_kind=extract_tex_env_kind(tex_body),
         tex_env_kinds=extract_tex_env_kinds(tex_body),
         verso_env_kind=extract_verso_env_kind(block.header, block.kind),
-        verso_header_id=extract_verso_header_id(block.header, block.kind),
+        verso_header_id=verso_header_id,
     )
 
 

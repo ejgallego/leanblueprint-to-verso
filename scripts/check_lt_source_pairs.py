@@ -38,6 +38,7 @@ def parse_blocks(path: Path) -> list[Block]:
     fence_start = -1
     fence_info = ""
     fence_lines: list[str] = []
+    metadata_start = -1
     node_start = -1
     node_header = ""
     node_lines: list[str] = []
@@ -86,6 +87,11 @@ def parse_blocks(path: Path) -> list[Block]:
                 fence_lines = []
             continue
 
+        if metadata_start != -1:
+            if stripped == "%%%":
+                metadata_start = -1
+            continue
+
         if node_start != -1:
             node_lines.append(line)
             if stripped == ":::":
@@ -108,6 +114,11 @@ def parse_blocks(path: Path) -> list[Block]:
             fence_start = idx
             fence_info = stripped[3:].strip()
             fence_lines = [line]
+            continue
+
+        if stripped == "%%%":
+            flush_prose(idx - 1)
+            metadata_start = idx
             continue
 
         if stripped.startswith(":::") and stripped != ":::":
