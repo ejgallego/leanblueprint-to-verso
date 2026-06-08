@@ -89,10 +89,10 @@ def main() -> int:
                 f"lakefile package {declared_package!r} does not match {CONFIG_FILENAME} package_name {config.package_name!r}"
             )
 
-        _, verso_ref = find_verso_blueprint_dependency(project_root)
-        math_lint_option = verso_math_lint_option_name(verso_ref)
-        strict_external_code_option = verso_strict_external_code_option_name(verso_ref)
-        warn_line_length_option = verso_warn_line_length_option_name(verso_ref)
+        _, option_ref = find_verso_blueprint_dependency(project_root)
+        math_lint_option = verso_math_lint_option_name(option_ref)
+        strict_external_code_option = verso_strict_external_code_option_name(option_ref)
+        warn_line_length_option = verso_warn_line_length_option_name(option_ref)
 
         math_lint = find_lake_lean_option_bool(project_root, math_lint_option)
         if math_lint is not True:
@@ -117,6 +117,30 @@ def main() -> int:
                 f"`{strict_external_code_option}` to {expected} "
                 f"to match {CONFIG_FILENAME} harness.strict_external_code"
             )
+
+        root_toolchain_path = project_root / "lean-toolchain"
+        formalization_toolchain_path = (
+            project_root / config.formalization_path / "lean-toolchain"
+        )
+        package_toolchain_path = project_root / ".lake" / "packages" / "VersoBlueprint" / "lean-toolchain"
+        expected_toolchain: str | None = None
+        if root_toolchain_path.exists():
+            expected_toolchain = root_toolchain_path.read_text(encoding="utf-8").strip()
+        if formalization_toolchain_path.exists():
+            formalization_toolchain = formalization_toolchain_path.read_text(encoding="utf-8").strip()
+            if expected_toolchain is not None and formalization_toolchain != expected_toolchain:
+                mismatches.append(
+                    "root lean-toolchain must match the vendored formalization "
+                    f"({expected_toolchain!r} != {formalization_toolchain!r})"
+                )
+            expected_toolchain = formalization_toolchain
+        if root_toolchain_path.exists() and package_toolchain_path.exists():
+            package_toolchain = package_toolchain_path.read_text(encoding="utf-8").strip()
+            if expected_toolchain is not None and package_toolchain != expected_toolchain:
+                mismatches.append(
+                    "resolved VersoBlueprint lean-toolchain must match the root/formalization "
+                    f"toolchain ({package_toolchain!r} != {expected_toolchain!r})"
+                )
 
         for relative in [
             Path(config.formalization_path),

@@ -52,7 +52,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Optional override for compatibility work only. By default the helper selects "
-            "the matching VersoBlueprint branch for the chosen Lean toolchain."
+            "the base VersoBlueprint release ref for the chosen Lean toolchain."
         ),
     )
     parser.add_argument(

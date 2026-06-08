@@ -103,7 +103,7 @@ def write_harness_project(
         root / ".github" / "workflows" / "blueprint.yml",
         "name: blueprint\non: workflow_dispatch\njobs: {}\n",
     )
-    (root / "Demo").mkdir(parents=True, exist_ok=True)
+    write_file(root / "Demo" / "lean-toolchain", lean_toolchain + "\n")
 
 
 def run_check(project_root: Path) -> subprocess.CompletedProcess[str]:
@@ -220,6 +220,27 @@ class CheckHarnessTests(unittest.TestCase):
             result = run_check(root)
             self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
             self.assertIn("dependency cache guard", result.stdout)
+
+    def test_check_harness_rejects_resolved_vbp_toolchain_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_project(
+                root,
+                lean_toolchain="leanprover/lean4:v4.30.0-rc2",
+                verso_ref="v4.30.0",
+                math_lint_option="weak.verso.blueprint.math.lint",
+                warn_line_length_option="weak.verso.code.warnLineLength",
+                strict_external_code=True,
+                strict_external_code_option="weak.verso.blueprint.externalCode.strictResolve",
+                lake_strict_external_code=True,
+            )
+            write_file(
+                root / ".lake" / "packages" / "VersoBlueprint" / "lean-toolchain",
+                "leanprover/lean4:v4.30.0\n",
+            )
+            result = run_check(root)
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("resolved VersoBlueprint lean-toolchain", result.stdout)
 
     def test_check_harness_rejects_ci_pages_executable_target(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

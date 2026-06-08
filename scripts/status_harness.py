@@ -236,7 +236,7 @@ def inspect_checkout(name: str, repo: Path, *, offline: bool) -> Section:
     return section
 
 
-def inspect_toolchain(project_root: Path, formalization_root: Path) -> tuple[Section, str | None]:
+def inspect_toolchain(project_root: Path, formalization_root: Path) -> tuple[Section, str | None, str | None]:
     section = Section("toolchain")
     root_toolchain = read_text(project_root / "lean-toolchain")
     formalization_toolchain = read_text(formalization_root / "lean-toolchain")
@@ -258,13 +258,14 @@ def inspect_toolchain(project_root: Path, formalization_root: Path) -> tuple[Sec
     expected_ref = default_verso_blueprint_ref(source) if source is not None else None
     if expected_ref is not None:
         section.facts.append(("expected_verso_ref", expected_ref))
-    return section, expected_ref
+    return section, expected_ref, source
 
 
 def inspect_verso_blueprint(
     project_root: Path,
     *,
     expected_ref: str | None,
+    expected_toolchain: str | None,
     offline: bool,
 ) -> Section:
     section = Section("verso-blueprint")
@@ -305,6 +306,14 @@ def inspect_verso_blueprint(
         section.issues.append("VersoBlueprint is not resolved in lake-manifest.json or .lake/packages")
     else:
         section.facts.append(("resolved_rev", short_sha(resolved_rev)))
+
+    package_toolchain = read_text(project_root / ".lake" / "packages" / "VersoBlueprint" / "lean-toolchain")
+    if package_toolchain is not None:
+        section.facts.append(("package_toolchain", package_toolchain))
+        if expected_toolchain is not None and package_toolchain != expected_toolchain:
+            section.issues.append(
+                "resolved VersoBlueprint lean-toolchain does not match the vendored formalization"
+            )
 
     if offline:
         section.notes.append("remote checks skipped (--offline)")
@@ -359,12 +368,13 @@ def main() -> int:
         inspect_checkout("harness", helper_root, offline=args.offline),
         inspect_checkout("upstream", formalization_root, offline=args.offline),
     ]
-    toolchain_section, expected_ref = inspect_toolchain(project_root, formalization_root)
+    toolchain_section, expected_ref, expected_toolchain = inspect_toolchain(project_root, formalization_root)
     sections.append(toolchain_section)
     sections.append(
         inspect_verso_blueprint(
             project_root,
             expected_ref=expected_ref,
+            expected_toolchain=expected_toolchain,
             offline=args.offline,
         )
     )

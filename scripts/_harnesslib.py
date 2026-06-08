@@ -313,6 +313,12 @@ def load_config(project_root: Path) -> HarnessConfig:
         if "strict_external_code" in harness_section
         else DEFAULT_STRICT_EXTERNAL_CODE
     )
+    if "verso_blueprint_ref" in harness_section:
+        raise SystemExit(
+            f"{CONFIG_FILENAME}: harness.verso_blueprint_ref is no longer supported; "
+            "keep prerelease Lean toolchain adaptations local and pin VersoBlueprint "
+            "to the base release ref"
+        )
     if "non_port_chapters" in harness_section:
         raise SystemExit(
             f"{CONFIG_FILENAME}: harness.non_port_chapters is no longer supported; "

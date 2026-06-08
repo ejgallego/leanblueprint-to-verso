@@ -67,6 +67,26 @@ Alpha.
             self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
             self.assertIn("extra uses ['bar']", result.stdout)
 
+    def test_cli_reports_local_only_block_uses(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::proof "foo" (uses := "bar, baz")
+Alpha.
+:::
+```tex "foo" (slot := proof)
+\\begin{proof}
+Alpha.
+\\end{proof}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("extra uses ['bar', 'baz']", result.stdout)
+
     def test_cli_reports_local_only_bpref(self) -> None:
         content = """#doc (Manual) "Demo" =>
 
@@ -124,6 +144,72 @@ Alpha.
 \\uses{bar}
 By theorem~\\ref{baz}.
 Alpha.
+\\end{theorem}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), '')
+
+    def test_cli_accepts_block_uses_authorized_by_source(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::theorem "foo" (lean := "Demo.foo") (uses := "bar, baz") (uses_intent := "auxiliary")
+Alpha.
+:::
+```tex "foo"
+\\begin{theorem}
+\\label{foo}
+\\lean{Demo.foo}
+\\uses{bar,baz}
+Alpha.
+\\end{theorem}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), '')
+
+    def test_cli_accepts_inline_use_metadata(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::theorem "foo"
+This uses {uses "bar" (intent := "technical")}[].
+:::
+```tex "foo"
+\\begin{theorem}
+\\label{foo}
+\\uses{bar}
+This uses bar.
+\\end{theorem}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), '')
+
+    def test_cli_ignores_automatic_uses_without_source_witness(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::theorem "foo" (uses := "auto_header") (uses_origin := "automatic")
+This uses {uses "auto_inline" (origin := "automatic")}[generated edge].
+:::
+```tex "foo"
+\\begin{theorem}
+\\label{foo}
+This has no manual dependency metadata.
 \\end{theorem}
 ```
 """

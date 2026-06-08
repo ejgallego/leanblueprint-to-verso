@@ -117,6 +117,7 @@ def write_host_project(
     verso_url: str,
     verso_ref: str,
     verso_rev: str | None,
+    package_toolchain: str | None = None,
     compact_at_syntax: bool = False,
 ) -> None:
     write_file(
@@ -188,6 +189,11 @@ def write_host_project(
             "lakeDir": ".lake",
         }
         write_file(project_root / "lake-manifest.json", json.dumps(manifest, indent=1) + "\n")
+    if package_toolchain is not None:
+        write_file(
+            project_root / ".lake" / "packages" / "VersoBlueprint" / "lean-toolchain",
+            package_toolchain + "\n",
+        )
 
 
 class StatusHarnessTests(unittest.TestCase):
@@ -308,7 +314,7 @@ class StatusHarnessTests(unittest.TestCase):
             self.assertIn("summary: ok", result.stdout)
             self.assertNotIn("needs attention", result.stdout)
 
-    def test_status_harness_accepts_base_verso_branch_for_lean_prerelease(self) -> None:
+    def test_status_harness_accepts_base_verso_ref_for_lean_prerelease(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _, _, helper_checkout, _, _ = create_remote_with_checkout(
@@ -338,6 +344,7 @@ class StatusHarnessTests(unittest.TestCase):
                 verso_url=str(verso_remote),
                 verso_ref="v4.30.0",
                 verso_rev=verso_rev,
+                package_toolchain="leanprover/lean4:v4.30.0-rc2",
             )
             shutil.copytree(formalization_checkout, project_root / "Formalization")
 
@@ -355,7 +362,59 @@ class StatusHarnessTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("expected_verso_ref: v4.30.0", result.stdout)
+            self.assertIn("expected_ref: v4.30.0", result.stdout)
+            self.assertIn("package_toolchain: leanprover/lean4:v4.30.0-rc2", result.stdout)
             self.assertIn("summary: ok", result.stdout)
+
+    def test_status_harness_rejects_resolved_vbp_toolchain_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, _, helper_checkout, _, _ = create_remote_with_checkout(
+                root,
+                "helper",
+                branch="main",
+                initial_files={"README.md": "helper\n"},
+            )
+            verso_remote, _, _, verso_rev, _ = create_remote_with_checkout(
+                root,
+                "verso",
+                branch="v4.30.0",
+                initial_files={"README.md": "verso\n"},
+            )
+            _, _, formalization_checkout, _, _ = create_remote_with_checkout(
+                root,
+                "formalization",
+                branch="main",
+                initial_files={"lean-toolchain": "leanprover/lean4:v4.30.0-rc2\n"},
+            )
+
+            project_root = root / "project"
+            write_host_project(
+                project_root,
+                formalization_path="Formalization",
+                lean_toolchain="leanprover/lean4:v4.30.0-rc2",
+                verso_url=str(verso_remote),
+                verso_ref="v4.30.0",
+                verso_rev=verso_rev,
+                package_toolchain="leanprover/lean4:v4.30.0",
+            )
+            shutil.copytree(formalization_checkout, project_root / "Formalization")
+
+            result = run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_harness.py"),
+                    "--project-root",
+                    str(project_root),
+                    "--helper-root",
+                    str(helper_checkout),
+                    "--offline",
+                ],
+                cwd=ROOT,
+            )
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("resolved VersoBlueprint lean-toolchain", result.stdout)
+            self.assertIn("summary: needs attention: verso-blueprint", result.stdout)
 
     def test_status_harness_accepts_compact_at_syntax(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

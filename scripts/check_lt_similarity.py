@@ -171,17 +171,20 @@ class PairScore:
 
 
 MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]+\)")
-USES_RE = re.compile(r'\{uses "[^"]+"\}\[\]')
-USES_CAPTURE_RE = re.compile(r'\{uses "([^"]+)"\}\[\]')
-BPREF_RE = re.compile(r'\{bpref "[^"]+"\}\[\]')
-BPREF_CAPTURE_RE = re.compile(r'\{bpref "([^"]+)"\}\[\]')
+USES_RE = re.compile(r'\{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\]')
+USES_CAPTURE_RE = re.compile(r'\{uses\s+"([^"]+)"(?P<opts>(?:\s+\([^{}]*\))*)\}\[\]')
+BPREF_RE = re.compile(r'\{bpref\s+"[^"]+"\}\[\]')
+BPREF_CAPTURE_RE = re.compile(r'\{bpref\s+"([^"]+)"\}\[\]')
+VERSO_BLOCK_USES_CAPTURE_RE = re.compile(r'\(\s*uses\s*:=\s*"([^"]+)"\s*\)')
+VERSO_BLOCK_USES_ORIGIN_RE = re.compile(r'\(\s*uses_origin\s*:=\s*"([^"]+)"\s*\)')
+VERSO_OPTION_RE = re.compile(r'\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*:=\s*"([^"]*)"\s*\)')
 USES_LINE_RE = re.compile(
     r'(?m)^[ \t]*Uses (?:'
-    r'\{uses "[^"]+"\}\[\]'
+    r'\{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\]'
     r'|'
-    r'\{uses "[^"]+"\}\[\] and \{uses "[^"]+"\}\[\]'
+    r'\{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\] and \{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\]'
     r'|'
-    r'\{uses "[^"]+"\}\[\](?:, \{uses "[^"]+"\}\[\])+, and \{uses "[^"]+"\}\[\]'
+    r'\{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\](?:, \{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\])+, and \{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\]'
     r')\.[ \t]*$'
 )
 CITE_RE = re.compile(r"\{[^{}]*cite[^{}]*\}\[\]")
@@ -309,12 +312,32 @@ def split_csv_items(value: str) -> set[str]:
     return {item.strip() for item in value.split(",") if item.strip()}
 
 
+def option_value(options: str, name: str) -> str | None:
+    for match in VERSO_OPTION_RE.finditer(options):
+        if match.group(1) == name:
+            return match.group(2).strip()
+    return None
+
+
 def strip_tex_comments(text: str) -> str:
     return "\n".join(TEX_COMMENT_RE.sub("", line) for line in text.splitlines())
 
 
 def extract_verso_uses(text: str) -> set[str]:
-    return {match.group(1).strip() for match in USES_CAPTURE_RE.finditer(text)}
+    items: set[str] = set()
+    header = text.split("\n", 1)[0]
+    block_origin_match = VERSO_BLOCK_USES_ORIGIN_RE.search(header)
+    block_origin = block_origin_match.group(1).strip().lower() if block_origin_match else "manual"
+    if block_origin != "automatic":
+        for match in VERSO_BLOCK_USES_CAPTURE_RE.finditer(header):
+            items |= split_csv_items(match.group(1))
+
+    for match in USES_CAPTURE_RE.finditer(text):
+        origin = option_value(match.group("opts"), "origin")
+        if origin is not None and origin.strip().lower() == "automatic":
+            continue
+        items.add(match.group(1).strip())
+    return items
 
 
 def extract_verso_bprefs(text: str) -> set[str]:
@@ -411,7 +434,7 @@ def score_pair(block: Block, tex: Block) -> PairScore:
         length_ratio=length_ratio(verso_text, tex_text),
         verso_text=verso_text,
         tex_text=tex_text,
-        verso_uses=extract_verso_uses(verso_body),
+        verso_uses=extract_verso_uses(block.header + "\n" + verso_body),
         verso_bprefs=extract_verso_bprefs(verso_body),
         tex_uses=extract_tex_uses(tex_body),
         verso_lean=extract_verso_lean(block.header),

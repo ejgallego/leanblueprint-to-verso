@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from unittest import mock
 import unittest
 
 
@@ -18,6 +20,26 @@ import ensure_dependency_cache  # noqa: E402
 def write_mathlib_manifest(root: Path) -> None:
     manifest = {"packages": [{"name": "mathlib", "rev": "abc", "inputRev": "abc"}]}
     (root / "lake-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+
+def write_harness_config(root: Path, formalization_path: str = "Demo") -> None:
+    (root / "verso-harness.toml").write_text(
+        "\n".join(
+            [
+                'package_name = "DemoBlueprint"',
+                'blueprint_main = "BlueprintMain"',
+                f'formalization_path = "{formalization_path}"',
+                'chapter_root = "DemoBlueprint/Chapters"',
+                'tex_source_glob = "./blueprint/src/chapter/main.tex"',
+                "",
+                "[lt]",
+                "default_chapters = []",
+                "",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 class EnsureDependencyCacheTests(unittest.TestCase):
@@ -57,6 +79,61 @@ class EnsureDependencyCacheTests(unittest.TestCase):
             )
             gaps = ensure_dependency_cache.dependency_artifact_gaps(root)
         self.assertEqual(gaps, [])
+
+    def test_sync_project_toolchain_selection_uses_formalization_toolchain(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_config(root)
+            (root / "lean-toolchain").write_text("leanprover/lean4:v4.30.0\n", encoding="utf-8")
+            (root / "Demo").mkdir()
+            (root / "Demo" / "lean-toolchain").write_text(
+                "leanprover/lean4:v4.30.0-rc2\n",
+                encoding="utf-8",
+            )
+            package_toolchain = (
+                root
+                / ".lake"
+                / "packages"
+                / "VersoBlueprint"
+                / "lean-toolchain"
+            )
+            package_toolchain.parent.mkdir(parents=True)
+            package_toolchain.write_text("leanprover/lean4:v4.30.0\n", encoding="utf-8")
+
+            changed = ensure_dependency_cache.sync_project_toolchain_selection(root)
+
+            self.assertEqual(
+                sorted(path.relative_to(root) for path in changed),
+                [
+                    Path(".lake/packages/VersoBlueprint/lean-toolchain"),
+                    Path("lean-toolchain"),
+                ],
+            )
+            self.assertEqual(
+                (root / "lean-toolchain").read_text(encoding="utf-8").strip(),
+                "leanprover/lean4:v4.30.0-rc2",
+            )
+            self.assertEqual(
+                package_toolchain.read_text(encoding="utf-8").strip(),
+                "leanprover/lean4:v4.30.0-rc2",
+            )
+
+    def test_sync_project_toolchain_selection_noops_without_vbp_checkout(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_config(root)
+            (root / "Demo").mkdir()
+            (root / "Demo" / "lean-toolchain").write_text(
+                "leanprover/lean4:v4.30.0-rc2\n",
+                encoding="utf-8",
+            )
+
+            changed = ensure_dependency_cache.sync_project_toolchain_selection(root)
+
+            self.assertEqual([path.relative_to(root) for path in changed], [Path("lean-toolchain")])
+            self.assertFalse(
+                (root / ".lake" / "packages" / "VersoBlueprint" / "lean-toolchain").exists()
+            )
 
     def test_materializes_cached_lean_artifacts_from_dependency_trace(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -129,6 +206,31 @@ class EnsureDependencyCacheTests(unittest.TestCase):
                 "jkl.ilean",
             )
             self.assertFalse((trace.parent / "Basic.c").exists())
+
+    def test_lake_cache_artifacts_dir_falls_back_to_elan_resolved_lake(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            shim_lake = root / ".elan" / "bin" / "lake"
+            real_lake = root / ".elan" / "toolchains" / "leanprover--lean4---v4.30.0-rc2" / "bin" / "lake"
+            artifact_dir = real_lake.parents[1] / "lake" / "cache" / "artifacts"
+            shim_lake.parent.mkdir(parents=True)
+            real_lake.parent.mkdir(parents=True)
+            artifact_dir.mkdir(parents=True)
+            shim_lake.write_text("", encoding="utf-8")
+            real_lake.write_text("", encoding="utf-8")
+
+            completed = subprocess.CompletedProcess(
+                ["elan", "which", "lake"],
+                0,
+                stdout=str(real_lake) + "\n",
+                stderr="",
+            )
+            with mock.patch.object(ensure_dependency_cache.shutil, "which", return_value=str(shim_lake)):
+                with mock.patch.object(ensure_dependency_cache.subprocess, "run", return_value=completed):
+                    self.assertEqual(
+                        ensure_dependency_cache.lake_cache_artifacts_dir(),
+                        artifact_dir,
+                    )
 
 
 if __name__ == "__main__":

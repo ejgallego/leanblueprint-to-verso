@@ -8,10 +8,13 @@ import os
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 
 CACHE_GET_COMMAND = ("lake", "exe", "cache", "get")
+CONFIG_FILENAME = "verso-harness.toml"
+VERSO_BLUEPRINT_PACKAGE_TOOLCHAIN = Path(".lake") / "packages" / "VersoBlueprint" / "lean-toolchain"
 GUARDED_MODULE_ROOTS = {
     "mathlib": ("Mathlib",),
 }
@@ -90,6 +93,58 @@ def read_manifest_package_names(project_root: Path) -> set[str]:
     return names
 
 
+def read_toolchain(path: Path) -> str | None:
+    try:
+        value = path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return None
+    return value or None
+
+
+def read_formalization_toolchain(project_root: Path) -> str | None:
+    config_path = project_root / CONFIG_FILENAME
+    try:
+        data = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, tomllib.TOMLDecodeError):
+        return None
+
+    formalization_path = data.get("formalization_path")
+    if not isinstance(formalization_path, str) or not formalization_path.strip():
+        return None
+    path = Path(formalization_path)
+    if path.is_absolute():
+        return None
+    return read_toolchain(project_root / path / "lean-toolchain")
+
+
+def selected_project_toolchain(project_root: Path) -> str | None:
+    return read_formalization_toolchain(project_root) or read_toolchain(project_root / "lean-toolchain")
+
+
+def sync_toolchain_file(path: Path, selected_toolchain: str) -> bool:
+    if read_toolchain(path) == selected_toolchain:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(selected_toolchain + "\n", encoding="utf-8")
+    return True
+
+
+def sync_project_toolchain_selection(project_root: Path) -> list[Path]:
+    selected_toolchain = selected_project_toolchain(project_root)
+    if selected_toolchain is None:
+        return []
+
+    changed: list[Path] = []
+    root_toolchain_path = project_root / "lean-toolchain"
+    if sync_toolchain_file(root_toolchain_path, selected_toolchain):
+        changed.append(root_toolchain_path)
+
+    package_toolchain_path = project_root / VERSO_BLUEPRINT_PACKAGE_TOOLCHAIN
+    if package_toolchain_path.exists() and sync_toolchain_file(package_toolchain_path, selected_toolchain):
+        changed.append(package_toolchain_path)
+    return changed
+
+
 def relative_to_project(path: Path, project_root: Path) -> str:
     try:
         return str(path.relative_to(project_root))
@@ -124,14 +179,39 @@ def dependency_artifact_gaps(project_root: Path) -> list[str]:
 
 
 def lake_cache_artifacts_dir() -> Path | None:
+    candidates: list[str] = []
     lake_path = shutil.which("lake")
-    if lake_path is None:
-        return None
+    if lake_path is not None:
+        candidates.append(lake_path)
+    try:
+        elan_result = subprocess.run(
+            ["elan", "which", "lake"],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except OSError:
+        elan_result = None
+    if elan_result is not None and elan_result.returncode == 0:
+        resolved = elan_result.stdout.strip()
+        if resolved:
+            candidates.append(resolved)
+
+    for candidate in candidates:
+        artifact_dir = artifact_dir_for_lake_path(Path(candidate))
+        if artifact_dir is not None:
+            return artifact_dir
+    return None
+
+
+def artifact_dir_for_lake_path(lake_path: Path) -> Path | None:
     try:
         toolchain_root = Path(lake_path).resolve().parents[1]
     except IndexError:
         return None
-    return toolchain_root / "lake" / "cache" / "artifacts"
+    artifact_dir = toolchain_root / "lake" / "cache" / "artifacts"
+    return artifact_dir if artifact_dir.exists() else None
 
 
 def trace_output_artifacts(trace_path: Path) -> list[str]:
@@ -205,10 +285,14 @@ def warm_cache(project_root: Path) -> int:
 def main() -> int:
     args = parse_args()
     project_root = args.project_root.resolve()
+    for path in sync_project_toolchain_selection(project_root):
+        print(f"[dependency-cache] selected Lean toolchain in {relative_to_project(path, project_root)}")
     if args.warm_cache:
         cache_status = warm_cache(project_root)
         if cache_status != 0:
             return cache_status
+        for path in sync_project_toolchain_selection(project_root):
+            print(f"[dependency-cache] selected Lean toolchain in {relative_to_project(path, project_root)}")
 
     restored = materialize_cached_lean_artifacts(project_root)
     if restored:

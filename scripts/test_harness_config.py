@@ -92,6 +92,21 @@ class HarnessConfigTests(unittest.TestCase):
             self.assertTrue(config.docstring_warnings)
             self.assertFalse(config.strict_external_code)
 
+    def test_explicit_verso_blueprint_ref_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root)
+            config_path = root / 'verso-harness.toml'
+            config_path.write_text(
+                config_path.read_text(encoding='utf-8')
+                + '\n[harness]\n'
+                + 'verso_blueprint_ref = "feat/backport-v430rc2-uses-intent"\n',
+                encoding='utf-8',
+            )
+            with self.assertRaises(SystemExit) as exc:
+                load_config(root)
+            self.assertIn('harness.verso_blueprint_ref is no longer supported', str(exc.exception))
+
     def test_single_file_tex_source_locator_is_accepted(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

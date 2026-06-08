@@ -105,15 +105,21 @@ version-appropriate warn-line-length setting.
 The upstream formalization determines the Lean toolchain. In a consumer repo:
 
 - first update the upstream formalization to the desired revision
-- then copy or confirm the same value in the root `lean-toolchain`
-- then update the `VersoBlueprint` ref in `lakefile.lean` to the matching base
-  release branch `v<major>.<minor>.<patch>`; prerelease Lean toolchains such as
-  `v4.30.0-rc2` still use `VersoBlueprint` branch `v4.30.0`
-- then refresh caches or rebuild as needed
+- then copy or confirm the same value in the root `lean-toolchain`, including
+  prerelease suffixes such as `v4.30.0-rc2`
+- then update the `VersoBlueprint` ref in `lakefile.lean` to the base release
+  ref for that Lean series, such as `v4.30.0` for `v4.30.0-rc2`
+- then let `ensure_dependency_cache.py` select the formalization toolchain
+  locally in `.lake/packages/VersoBlueprint/lean-toolchain` before any
+  cache/build-sensitive step; this local package toolchain edit is not a
+  committed branch or upstream ref
+- then refresh caches as needed through the harness scripts
 - then repair any import or syntax fallout in the blueprint modules
 
 Do not bundle unrelated blueprint prose edits into a dependency-upgrade change,
-and do not bump the consumer toolchain independently of upstream.
+do not bump the consumer toolchain independently of upstream, and do not run raw
+Lake build/update commands when this local toolchain selection has not been
+checked.
 
 ## Bringing An Older Harness Up To Date
 
