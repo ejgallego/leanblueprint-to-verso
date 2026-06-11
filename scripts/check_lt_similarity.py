@@ -171,20 +171,20 @@ class PairScore:
 
 
 MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]+\)")
-USES_RE = re.compile(r'\{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\]')
-USES_CAPTURE_RE = re.compile(r'\{uses\s+"([^"]+)"(?P<opts>(?:\s+\([^{}]*\))*)\}\[\]')
-BPREF_RE = re.compile(r'\{bpref\s+"[^"]+"\}\[\]')
-BPREF_CAPTURE_RE = re.compile(r'\{bpref\s+"([^"]+)"\}\[\]')
+USES_RE = re.compile(r'\{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[(?P<body>[^\]]*)\]')
+USES_CAPTURE_RE = re.compile(r'\{uses\s+"([^"]+)"(?P<opts>(?:\s+\([^{}]*\))*)\}\[[^\]]*\]')
+BPREF_RE = re.compile(r'\{bpref\s+"[^"]+"\}\[(?P<body>[^\]]*)\]')
+BPREF_CAPTURE_RE = re.compile(r'\{bpref\s+"([^"]+)"\}\[[^\]]*\]')
 VERSO_BLOCK_USES_CAPTURE_RE = re.compile(r'\(\s*uses\s*:=\s*"([^"]+)"\s*\)')
 VERSO_BLOCK_USES_ORIGIN_RE = re.compile(r'\(\s*uses_origin\s*:=\s*"([^"]+)"\s*\)')
 VERSO_OPTION_RE = re.compile(r'\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*:=\s*"([^"]*)"\s*\)')
 USES_LINE_RE = re.compile(
     r'(?m)^[ \t]*Uses (?:'
-    r'\{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\]'
+    r'\{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[[^\]]*\]'
     r'|'
-    r'\{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\] and \{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\]'
+    r'\{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[[^\]]*\] and \{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[[^\]]*\]'
     r'|'
-    r'\{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\](?:, \{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\])+, and \{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[\]'
+    r'\{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[[^\]]*\](?:, \{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[[^\]]*\])+, and \{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[[^\]]*\]'
     r')\.[ \t]*$'
 )
 CITE_RE = re.compile(r"\{[^{}]*cite[^{}]*\}\[\]")
@@ -242,11 +242,16 @@ def block_body(block: Block) -> str:
 def normalize_verso(text: str) -> str:
     text = USES_LINE_RE.sub(" ", text)
     text = MARKDOWN_LINK_RE.sub(r" \1 ", text)
-    text = USES_RE.sub(" ", text)
-    text = BPREF_RE.sub(" ", text)
+    text = USES_RE.sub(verso_role_payload_replacement, text)
+    text = BPREF_RE.sub(verso_role_payload_replacement, text)
     text = CITE_RE.sub(" ", text)
     text = INLINE_TAG_RE.sub(" ", text)
     return normalize_common(text)
+
+
+def verso_role_payload_replacement(match: re.Match[str]) -> str:
+    payload = match.group("body").strip()
+    return f" {payload} " if payload else " "
 
 
 def normalize_tex(text: str) -> str:

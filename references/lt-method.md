@@ -41,6 +41,11 @@ Faithfulness`) are accepted aliases for the same workflow.
 - Treat metadata cleanup as a second phase of LT rather than as a substitute
   for LT. First pair the text with a source witness, then tighten
   `(lean := "...")`, `{uses "..."}[]`, and `{bpref "..."}[]`.
+- Treat dependency metadata such as `uses_origin`, `uses_intent`, inline
+  `origin` / `intent`, and `autoDeps` as curation or generated-dependency
+  metadata, not as part of the first LT port. Source TeX `\uses{...}` edges
+  should remain manual regular edges unless a later review deliberately marks
+  a generated/formalization-owned relationship as automatic.
 - When non-literal material is unavoidable, keep it visibly separate and label
   it as an editorial or harness note.
 

@@ -77,6 +77,33 @@ Alpha.
         self.assertEqual(score.tex_lean, {"Baz.qux", "Demo.quux"})
         self.assertEqual(score.metadata_diff_count, 0)
 
+    def test_inline_role_payloads_are_visible_text_and_metadata_is_extracted(self) -> None:
+        verso = verso_block(
+            'Alpha {uses "foo" (intent := "auxiliary")}[Foo] and {bpref "bar"}[Bar].'
+        )
+        tex = tex_block(
+            r"""
+\uses{foo}
+Alpha Foo and Bar~\ref{bar}.
+""".strip()
+        )
+        score = score_pair(verso, tex)
+        self.assertEqual(score.verso_uses, {"foo"})
+        self.assertEqual(score.verso_bprefs, {"bar"})
+        self.assertEqual(score.extra_uses, set())
+        self.assertEqual(score.extra_bprefs, set())
+        self.assertGreaterEqual(score.token_ratio, 0.99)
+
+    def test_automatic_inline_uses_with_payload_are_ignored_as_manual_metadata(self) -> None:
+        verso = verso_block(
+            'Alpha {uses "auto" (origin := "automatic")}[generated dependency].'
+        )
+        tex = tex_block("Alpha generated dependency.")
+        score = score_pair(verso, tex)
+        self.assertEqual(score.verso_uses, set())
+        self.assertEqual(score.extra_uses, set())
+        self.assertGreaterEqual(score.token_ratio, 0.99)
+
     def test_standalone_uses_lines_are_ignored_in_similarity(self) -> None:
         cases = [
             'Uses {uses "foo"}[].',
