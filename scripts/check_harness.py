@@ -31,6 +31,7 @@ CI_DEPS_TARGET_PATTERN = re.compile(r"\blake\s+build\s+[^\n|;&]*:deps\b")
 CI_EXE_TARGET_PATTERN = re.compile(r"\blake\s+build\s+blueprint-gen\b")
 CI_LAKE_BUILD_PATTERN = re.compile(r"\blake\s+build\b")
 CI_CACHE_GUARD_PATTERN = re.compile(r"\bensure_dependency_cache\.py\b")
+CI_GENERATED_SITE_CHECK_PATTERN = re.compile(r"\bcheck_generated_site\.py\b")
 
 
 def parse_args() -> argparse.Namespace:
@@ -188,6 +189,11 @@ def main() -> int:
             mismatches.append(
                 "scripts/ci-pages.sh must not build the `blueprint-gen` executable; "
                 "that target can force Lake to build native artifacts for external dependencies"
+            )
+        if not CI_GENERATED_SITE_CHECK_PATTERN.search(script_text):
+            mismatches.append(
+                "scripts/ci-pages.sh must validate generated site artifacts with "
+                "check_generated_site.py; run update_ci.py to refresh helper-owned CI files"
             )
 
     if missing or mismatches or placeholder_paths or not script_executable:

@@ -92,6 +92,8 @@ def write_harness_project(
             [
                 "#!/usr/bin/env bash",
                 "python3 tools/verso-harness/scripts/ensure_dependency_cache.py --project-root . --warm-cache",
+                "lake build +BlueprintMain",
+                "python3 tools/verso-harness/scripts/check_generated_site.py --project-root . --site-dir _out/site/html-multi",
                 "exit 0",
             ]
         )
@@ -220,6 +222,36 @@ class CheckHarnessTests(unittest.TestCase):
             result = run_check(root)
             self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
             self.assertIn("dependency cache guard", result.stdout)
+
+    def test_check_harness_rejects_stale_generated_site_smoke(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_project(
+                root,
+                lean_toolchain="leanprover/lean4:v4.29.0",
+                verso_ref="v4.29.0",
+                math_lint_option="weak.verso.blueprint.math.lint",
+                warn_line_length_option="weak.verso.code.warnLineLength",
+                strict_external_code=True,
+                strict_external_code_option="weak.verso.blueprint.externalCode.strictResolve",
+                lake_strict_external_code=True,
+            )
+            write_file(
+                root / "scripts" / "ci-pages.sh",
+                "\n".join(
+                    [
+                        "#!/usr/bin/env bash",
+                        "python3 tools/verso-harness/scripts/ensure_dependency_cache.py --project-root . --warm-cache",
+                        "lake build +BlueprintMain",
+                        "test -f _out/site/html-multi/-verso-data/blueprint-preview-manifest.json",
+                    ]
+                )
+                + "\n",
+                executable=True,
+            )
+            result = run_check(root)
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("check_generated_site.py", result.stdout)
 
     def test_check_harness_allows_vbp_base_release_toolchain(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
