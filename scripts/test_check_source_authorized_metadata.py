@@ -182,13 +182,35 @@ Alpha.
         content = """#doc (Manual) "Demo" =>
 
 :::theorem "foo"
-This uses {uses "bar" (intent := "technical")}[].
+This uses {uses "bar" (intent := "technical")}[Bar].
 :::
 ```tex "foo"
 \\begin{theorem}
 \\label{foo}
 \\uses{bar}
-This uses bar.
+This uses Bar.
+\\end{theorem}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), '')
+
+    def test_cli_accepts_auto_deps_option_without_source_obligation(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::theorem "foo" (lean := "Demo.foo") (autoDeps := true)
+Alpha.
+:::
+```tex "foo"
+\\begin{theorem}
+\\label{foo}
+\\lean{Demo.foo}
+Alpha.
 \\end{theorem}
 ```
 """

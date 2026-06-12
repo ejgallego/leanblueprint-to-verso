@@ -17,8 +17,9 @@ from check_lt_similarity import paired_blocks, score_pair  # noqa: E402
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Fail when local Verso `{uses ...}`, `{bpref ...}`, or `(lean := ...)` "
-            "metadata is not authorized by the adjacent TeX witness."
+            "Fail when local manual Verso `{uses ...}`, `{bpref ...}`, or "
+            "`(lean := ...)` metadata is not authorized by the adjacent TeX witness. "
+            "Automatic dependency edges are treated as generated metadata and ignored."
         )
     )
     parser.add_argument(

@@ -344,7 +344,7 @@ class StatusHarnessTests(unittest.TestCase):
                 verso_url=str(verso_remote),
                 verso_ref="v4.30.0",
                 verso_rev=verso_rev,
-                package_toolchain="leanprover/lean4:v4.30.0-rc2",
+                package_toolchain="leanprover/lean4:v4.30.0",
             )
             shutil.copytree(formalization_checkout, project_root / "Formalization")
 
@@ -363,10 +363,10 @@ class StatusHarnessTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("expected_verso_ref: v4.30.0", result.stdout)
             self.assertIn("expected_ref: v4.30.0", result.stdout)
-            self.assertIn("package_toolchain: leanprover/lean4:v4.30.0-rc2", result.stdout)
+            self.assertIn("package_toolchain: leanprover/lean4:v4.30.0", result.stdout)
             self.assertIn("summary: ok", result.stdout)
 
-    def test_status_harness_rejects_resolved_vbp_toolchain_mismatch(self) -> None:
+    def test_status_harness_allows_vbp_base_release_toolchain(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _, _, helper_checkout, _, _ = create_remote_with_checkout(
@@ -412,9 +412,9 @@ class StatusHarnessTests(unittest.TestCase):
                 ],
                 cwd=ROOT,
             )
-            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
-            self.assertIn("resolved VersoBlueprint lean-toolchain", result.stdout)
-            self.assertIn("summary: needs attention: verso-blueprint", result.stdout)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("package_toolchain: leanprover/lean4:v4.30.0", result.stdout)
+            self.assertIn("summary: ok", result.stdout)
 
     def test_status_harness_accepts_compact_at_syntax(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

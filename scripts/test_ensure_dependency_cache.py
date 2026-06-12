@@ -104,10 +104,7 @@ class EnsureDependencyCacheTests(unittest.TestCase):
 
             self.assertEqual(
                 sorted(path.relative_to(root) for path in changed),
-                [
-                    Path(".lake/packages/VersoBlueprint/lean-toolchain"),
-                    Path("lean-toolchain"),
-                ],
+                [Path("lean-toolchain")],
             )
             self.assertEqual(
                 (root / "lean-toolchain").read_text(encoding="utf-8").strip(),
@@ -115,7 +112,7 @@ class EnsureDependencyCacheTests(unittest.TestCase):
             )
             self.assertEqual(
                 package_toolchain.read_text(encoding="utf-8").strip(),
-                "leanprover/lean4:v4.30.0-rc2",
+                "leanprover/lean4:v4.30.0",
             )
 
     def test_sync_project_toolchain_selection_noops_without_vbp_checkout(self) -> None:

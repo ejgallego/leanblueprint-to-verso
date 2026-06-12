@@ -14,7 +14,6 @@ from pathlib import Path
 
 CACHE_GET_COMMAND = ("lake", "exe", "cache", "get")
 CONFIG_FILENAME = "verso-harness.toml"
-VERSO_BLUEPRINT_PACKAGE_TOOLCHAIN = Path(".lake") / "packages" / "VersoBlueprint" / "lean-toolchain"
 GUARDED_MODULE_ROOTS = {
     "mathlib": ("Mathlib",),
 }
@@ -139,9 +138,6 @@ def sync_project_toolchain_selection(project_root: Path) -> list[Path]:
     if sync_toolchain_file(root_toolchain_path, selected_toolchain):
         changed.append(root_toolchain_path)
 
-    package_toolchain_path = project_root / VERSO_BLUEPRINT_PACKAGE_TOOLCHAIN
-    if package_toolchain_path.exists() and sync_toolchain_file(package_toolchain_path, selected_toolchain):
-        changed.append(package_toolchain_path)
     return changed
 
 

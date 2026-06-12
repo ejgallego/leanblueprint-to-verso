@@ -90,6 +90,11 @@ direct-port LT scope and populate it only with real source-backed chapter files.
 - Do not treat metadata cleanup as LT completion. First localize the text with
   a source witness, then tighten `(lean := "...")`, `{uses "..."}[]`, and
   `{bpref "..."}[]`.
+- Do not use `uses_origin`, `uses_intent`, inline `origin` / `intent`, or
+  `autoDeps` to compensate for an incomplete direct port. They are useful for
+  later human curation and generated/formalization-owned dependency edges, but
+  the LT pass should preserve source-authored `\uses{...}` as ordinary manual
+  dependencies.
 
 Do not port the whole blueprint in one pass. Edit one module, validate it, then
 continue.

@@ -310,10 +310,6 @@ def inspect_verso_blueprint(
     package_toolchain = read_text(project_root / ".lake" / "packages" / "VersoBlueprint" / "lean-toolchain")
     if package_toolchain is not None:
         section.facts.append(("package_toolchain", package_toolchain))
-        if expected_toolchain is not None and package_toolchain != expected_toolchain:
-            section.issues.append(
-                "resolved VersoBlueprint lean-toolchain does not match the vendored formalization"
-            )
 
     if offline:
         section.notes.append("remote checks skipped (--offline)")

@@ -22,6 +22,8 @@ VERSO_CODE_RE = re.compile(r"`([^`]+)`")
 VERSO_INLINE_MATH_RE = re.compile(r"\$`([^`]*)`")
 TEX_TEXORPDF_RE = re.compile(r"\\texorpdfstring\{([^{}]*)\}\{([^{}]*)\}")
 TEX_MATH_RE = re.compile(r"\$([^$]*)\$")
+TEX_ACCENT_BRACED_RE = re.compile(r"\\[\"'`^~=.]\{([^{}]*)\}")
+TEX_ACCENT_RE = re.compile(r"\\[\"'`^~=.]\s*")
 TEX_CMD_ARG_RE = re.compile(r"\\[A-Za-z]+\*?(?:\[[^\]]*\])?\{([^{}]*)\}")
 TEX_CMD_RE = re.compile(r"\\([A-Za-z]+)")
 NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
@@ -124,6 +126,8 @@ def heading_text(header: str) -> str:
 
 
 def normalize_common(text: str) -> str:
+    text = TEX_ACCENT_BRACED_RE.sub(r" \1 ", text)
+    text = TEX_ACCENT_RE.sub("", text)
     lowered = text.lower()
     for source, target in OPERATOR_REPLACEMENTS.items():
         lowered = lowered.replace(source, target)
@@ -143,11 +147,13 @@ def normalize_verso_heading(text: str) -> str:
 
 def normalize_tex_heading(text: str) -> str:
     while True:
-        updated = TEX_TEXORPDF_RE.sub(r" \2 ", text)
+        updated = TEX_TEXORPDF_RE.sub(r" \1 ", text)
         if updated == text:
             break
         text = updated
     text = TEX_MATH_RE.sub(r" \1 ", text)
+    text = TEX_ACCENT_BRACED_RE.sub(r" \1 ", text)
+    text = TEX_ACCENT_RE.sub("", text)
     text = TEX_CMD_ARG_RE.sub(r" \1 ", text)
     text = TEX_CMD_RE.sub(r" \1 ", text)
     return normalize_common(text)
