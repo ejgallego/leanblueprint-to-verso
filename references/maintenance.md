@@ -109,10 +109,9 @@ The upstream formalization determines the Lean toolchain. In a consumer repo:
   prerelease suffixes such as `v4.30.0-rc2`
 - then update the `VersoBlueprint` ref in `lakefile.lean` to the base release
   ref for that Lean series, such as `v4.30.0` for `v4.30.0-rc2`
-- then let `ensure_dependency_cache.py` select the formalization toolchain
-  locally in `.lake/packages/VersoBlueprint/lean-toolchain` before any
-  cache/build-sensitive step; this local package toolchain edit is not a
-  committed branch or upstream ref
+- keep the resolved `.lake/packages/VersoBlueprint` checkout clean; prerelease
+  toolchain selection is a property of the root/formalization build, not a
+  mutation of the dependency package checkout
 - then refresh caches as needed through the harness scripts
 - then repair any import or syntax fallout in the blueprint modules
 

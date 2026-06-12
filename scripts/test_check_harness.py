@@ -221,7 +221,7 @@ class CheckHarnessTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
             self.assertIn("dependency cache guard", result.stdout)
 
-    def test_check_harness_rejects_resolved_vbp_toolchain_mismatch(self) -> None:
+    def test_check_harness_allows_vbp_base_release_toolchain(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_harness_project(
@@ -239,8 +239,7 @@ class CheckHarnessTests(unittest.TestCase):
                 "leanprover/lean4:v4.30.0\n",
             )
             result = run_check(root)
-            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
-            self.assertIn("resolved VersoBlueprint lean-toolchain", result.stdout)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
 
     def test_check_harness_rejects_ci_pages_executable_target(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

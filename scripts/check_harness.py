@@ -122,7 +122,6 @@ def main() -> int:
         formalization_toolchain_path = (
             project_root / config.formalization_path / "lean-toolchain"
         )
-        package_toolchain_path = project_root / ".lake" / "packages" / "VersoBlueprint" / "lean-toolchain"
         expected_toolchain: str | None = None
         if root_toolchain_path.exists():
             expected_toolchain = root_toolchain_path.read_text(encoding="utf-8").strip()
@@ -134,13 +133,6 @@ def main() -> int:
                     f"({expected_toolchain!r} != {formalization_toolchain!r})"
                 )
             expected_toolchain = formalization_toolchain
-        if root_toolchain_path.exists() and package_toolchain_path.exists():
-            package_toolchain = package_toolchain_path.read_text(encoding="utf-8").strip()
-            if expected_toolchain is not None and package_toolchain != expected_toolchain:
-                mismatches.append(
-                    "resolved VersoBlueprint lean-toolchain must match the root/formalization "
-                    f"toolchain ({package_toolchain!r} != {expected_toolchain!r})"
-                )
 
         for relative in [
             Path(config.formalization_path),

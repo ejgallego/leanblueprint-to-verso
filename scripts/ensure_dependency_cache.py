@@ -14,7 +14,6 @@ from pathlib import Path
 
 CACHE_GET_COMMAND = ("lake", "exe", "cache", "get")
 CONFIG_FILENAME = "verso-harness.toml"
-VERSO_BLUEPRINT_PACKAGE_TOOLCHAIN = Path(".lake") / "packages" / "VersoBlueprint" / "lean-toolchain"
 GUARDED_MODULE_ROOTS = {
     "mathlib": ("Mathlib",),
 }
@@ -39,16 +38,6 @@ def parse_args() -> argparse.Namespace:
         "--warm-cache",
         action="store_true",
         help="Run `lake exe cache get` before checking artifacts.",
-    )
-    parser.add_argument(
-        "--restore-vbp-package-toolchain",
-        action="store_true",
-        help=(
-            "After cache checks, restore .lake/packages/VersoBlueprint/lean-toolchain "
-            "to the dependency checkout's HEAD copy. This keeps runtime source-link "
-            "generation from seeing the expected local prerelease toolchain selection "
-            "as a dirty dependency checkout."
-        ),
     )
     return parser.parse_args()
 
@@ -149,37 +138,7 @@ def sync_project_toolchain_selection(project_root: Path) -> list[Path]:
     if sync_toolchain_file(root_toolchain_path, selected_toolchain):
         changed.append(root_toolchain_path)
 
-    package_toolchain_path = project_root / VERSO_BLUEPRINT_PACKAGE_TOOLCHAIN
-    if package_toolchain_path.exists() and sync_toolchain_file(package_toolchain_path, selected_toolchain):
-        changed.append(package_toolchain_path)
     return changed
-
-
-def git_head_file(repo: Path, path: str) -> bytes | None:
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(repo), "show", f"HEAD:{path}"],
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-        )
-    except OSError:
-        return None
-    return result.stdout if result.returncode == 0 else None
-
-
-def restore_vbp_package_toolchain(project_root: Path) -> Path | None:
-    package_toolchain_path = project_root / VERSO_BLUEPRINT_PACKAGE_TOOLCHAIN
-    if not package_toolchain_path.exists():
-        return None
-    original = git_head_file(package_toolchain_path.parent, "lean-toolchain")
-    if original is None:
-        return None
-    current = package_toolchain_path.read_bytes()
-    if current == original:
-        return None
-    package_toolchain_path.write_bytes(original)
-    return package_toolchain_path
 
 
 def relative_to_project(path: Path, project_root: Path) -> str:
@@ -347,13 +306,6 @@ def main() -> int:
         return 1
 
     print("[dependency-cache] guarded dependency artifacts present")
-    if args.restore_vbp_package_toolchain:
-        restored_toolchain = restore_vbp_package_toolchain(project_root)
-        if restored_toolchain is not None:
-            print(
-                "[dependency-cache] restored checked-in toolchain in "
-                f"{relative_to_project(restored_toolchain, project_root)}"
-            )
     return 0
 
 
