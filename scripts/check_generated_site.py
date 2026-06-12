@@ -123,6 +123,7 @@ def main() -> int:
     project_root = args.project_root.resolve()
     site_dir = project_path(project_root, args.site_dir).resolve()
     errors: list[str] = []
+    warnings: list[str] = []
 
     if not site_dir.is_dir():
         errors.append(f"generated site directory is missing: {display_path(site_dir, project_root)}")
@@ -152,15 +153,17 @@ def main() -> int:
             for path in unreadable:
                 errors.append(f"generated site JSON is unreadable: {display_path(path, project_root)}")
             if semantic_manifest is None:
-                errors.append(
+                warnings.append(
                     "generated site is missing semantic preview data "
-                    "(expected a JSON file in -verso-data with a top-level previews array)"
+                    "(expected a JSON file in -verso-data with a top-level previews array); "
+                    "this role inference is advisory until VBP exposes a stable output contract"
                 )
             if rendered_cache is None:
-                errors.append(
+                warnings.append(
                     "generated site is missing rendered preview data "
                     "(expected preview entries with rendered HTML, either in a cache entries array "
-                    "or in a legacy previews array)"
+                    "or in a legacy previews array); this role inference is advisory until VBP "
+                    "exposes a stable output contract"
                 )
 
     if errors:
@@ -168,6 +171,8 @@ def main() -> int:
             print(f"[generated-site] {error}", file=sys.stderr)
         return 1
 
+    for warning in warnings:
+        print(f"[generated-site] warning: {warning}", file=sys.stderr)
     print(f"[generated-site] ok: {display_path(site_dir, project_root)}")
     return 0
 

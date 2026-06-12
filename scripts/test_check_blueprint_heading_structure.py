@@ -129,6 +129,66 @@ Intro text.
             result = run_checker(root)
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
 
+    def test_cli_normalizes_texorpdfstring_display_text(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+## An auxiliary L^2 tree estimate
+
+Intro text.
+
+```tex
+\\subsection{An auxiliary \\texorpdfstring{$L^2$}{L2} tree estimate}
+
+Intro text.
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+
+    def test_cli_normalizes_simple_tex_accents(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+### Holder estimates
+
+Intro text.
+
+```tex
+\\subsubsection{H\\"older estimates}
+
+Intro text.
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+
+    def test_cli_normalizes_simple_tex_accents_in_verso_heading(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+# Proof of the H\\"older cancellative condition
+
+Intro text.
+
+```tex
+\\section{Proof of the H\\"older cancellative condition}
+
+Intro text.
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+
 
 if __name__ == '__main__':
     unittest.main()

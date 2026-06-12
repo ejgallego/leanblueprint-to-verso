@@ -150,15 +150,27 @@ class CheckGeneratedSiteTests(unittest.TestCase):
             self.assertIn("references missing asset", result.stderr)
             self.assertIn("missing-cache.json", result.stderr)
 
-    def test_reports_missing_rendered_preview_data(self) -> None:
+    def test_warns_for_missing_rendered_preview_data(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            write_site(root, manifest={"previews": [{"key": "demo"}]})
+            write_site(root, manifest={"previews": [{"key": "demo"}]}, html_cache={"hoverDocs": []})
 
             result = run_check(root)
 
-            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("missing rendered preview data", result.stderr)
+            self.assertIn("warning:", result.stderr)
+
+    def test_warns_for_missing_semantic_preview_data(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_site(root, html_cache={"entries": [{"key": "demo", "html": "<p>demo</p>"}]})
+
+            result = run_check(root)
+
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("missing semantic preview data", result.stderr)
+            self.assertIn("stable output contract", result.stderr)
 
 
 if __name__ == "__main__":
