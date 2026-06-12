@@ -135,6 +135,48 @@ class EnsureDependencyCacheTests(unittest.TestCase):
                 (root / ".lake" / "packages" / "VersoBlueprint" / "lean-toolchain").exists()
             )
 
+    def test_restore_vbp_package_toolchain_uses_checked_in_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            package_dir = root / ".lake" / "packages" / "VersoBlueprint"
+            package_dir.mkdir(parents=True)
+            subprocess.run(["git", "init"], cwd=package_dir, check=True, stdout=subprocess.DEVNULL)
+            package_toolchain = package_dir / "lean-toolchain"
+            package_toolchain.write_text("leanprover/lean4:v4.30.0\n", encoding="utf-8")
+            subprocess.run(["git", "add", "lean-toolchain"], cwd=package_dir, check=True)
+            subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "user.name=Test",
+                    "-c",
+                    "user.email=test@example.com",
+                    "commit",
+                    "-m",
+                    "initial",
+                ],
+                cwd=package_dir,
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
+            package_toolchain.write_text("leanprover/lean4:v4.30.0-rc2\n", encoding="utf-8")
+
+            restored = ensure_dependency_cache.restore_vbp_package_toolchain(root)
+
+            self.assertEqual(restored, package_toolchain)
+            self.assertEqual(
+                package_toolchain.read_text(encoding="utf-8"),
+                "leanprover/lean4:v4.30.0\n",
+            )
+            status = subprocess.run(
+                ["git", "status", "--short"],
+                cwd=package_dir,
+                check=True,
+                stdout=subprocess.PIPE,
+                text=True,
+            )
+            self.assertEqual(status.stdout, "")
+
     def test_materializes_cached_lean_artifacts_from_dependency_trace(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "project"
