@@ -42,6 +42,7 @@ class PairScore:
     tex_text: str
     verso_uses: set[str]
     verso_bprefs: set[str]
+    verso_refs: set[str]
     tex_uses: set[str]
     verso_lean: set[str]
     tex_lean: set[str]
@@ -92,6 +93,7 @@ class PairScore:
             - self.tex_lean
             - self.verso_uses
             - self.verso_bprefs
+            - self.verso_refs
         )
         return {ref for ref in candidates if not looks_like_non_blueprint_ref(ref)}
 
@@ -175,6 +177,8 @@ USES_RE = re.compile(r'\{uses\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[(?P<body>[^\]]*)\]'
 USES_CAPTURE_RE = re.compile(r'\{uses\s+"([^"]+)"(?P<opts>(?:\s+\([^{}]*\))*)\}\[[^\]]*\]')
 BPREF_RE = re.compile(r'\{bpref\s+"[^"]+"\}\[(?P<body>[^\]]*)\]')
 BPREF_CAPTURE_RE = re.compile(r'\{bpref\s+"([^"]+)"\}\[[^\]]*\]')
+REF_RE = re.compile(r'\{ref\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[[^\]]*\]')
+REF_CAPTURE_RE = re.compile(r'\{ref\s+"([^"]+)"(?:\s+\([^{}]*\))*\}\[[^\]]*\]')
 VERSO_BLOCK_USES_CAPTURE_RE = re.compile(r'\(\s*uses\s*:=\s*"([^"]+)"\s*\)')
 VERSO_BLOCK_USES_ORIGIN_RE = re.compile(r'\(\s*uses_origin\s*:=\s*"([^"]+)"\s*\)')
 VERSO_OPTION_RE = re.compile(r'\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*:=\s*"([^"]*)"\s*\)')
@@ -244,6 +248,7 @@ def normalize_verso(text: str) -> str:
     text = MARKDOWN_LINK_RE.sub(r" \1 ", text)
     text = USES_RE.sub(verso_role_payload_replacement, text)
     text = BPREF_RE.sub(verso_role_payload_replacement, text)
+    text = REF_RE.sub(" ", text)
     text = CITE_RE.sub(" ", text)
     text = INLINE_TAG_RE.sub(" ", text)
     return normalize_common(text)
@@ -349,6 +354,10 @@ def extract_verso_bprefs(text: str) -> set[str]:
     return {match.group(1).strip() for match in BPREF_CAPTURE_RE.finditer(text)}
 
 
+def extract_verso_refs(text: str) -> set[str]:
+    return {match.group(1).strip() for match in REF_CAPTURE_RE.finditer(text)}
+
+
 def extract_verso_lean(header: str) -> set[str]:
     items: set[str] = set()
     for match in VERSO_LEAN_CAPTURE_RE.finditer(header):
@@ -441,6 +450,7 @@ def score_pair(block: Block, tex: Block) -> PairScore:
         tex_text=tex_text,
         verso_uses=extract_verso_uses(block.header + "\n" + verso_body),
         verso_bprefs=extract_verso_bprefs(verso_body),
+        verso_refs=extract_verso_refs(verso_body),
         tex_uses=extract_tex_uses(tex_body),
         verso_lean=extract_verso_lean(block.header),
         tex_lean=extract_tex_lean(tex_body),

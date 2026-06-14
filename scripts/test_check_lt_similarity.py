@@ -492,6 +492,39 @@ By theorem~\\ref{bar}.
             self.assertNotIn("- ref-review:", result.stdout)
             self.assertNotIn("- metadata-focus:", result.stdout)
 
+    def test_cli_refs_clear_ref_review_and_ref_payload_drift(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+Intro {ref "bar"}[the theorem with a long rendered title].
+```tex
+Intro \\Cref{bar}.
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ["Demo.lean"])
+            path = root / "Demo.lean"
+            path.write_text(content, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "check_lt_similarity.py"),
+                    "--project-root",
+                    tmp,
+                    str(path),
+                    "--top",
+                    "3",
+                ],
+                cwd=SCRIPT_DIR.parent,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("low=0", result.stdout)
+            self.assertIn("ref_review=0", result.stdout)
+            self.assertNotIn("- ref-review:", result.stdout)
+
     def test_cli_surfaces_placeholder_lean_priority(self) -> None:
         content = """#doc (Manual) "Demo" =>
 
