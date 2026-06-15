@@ -26,8 +26,8 @@ Faithfulness`) are accepted aliases for the same workflow.
 - Do not use `:::theorem` as a generic wrapper for theorem-like source blocks.
 - Preserve TeX `\uses{...}` edges when they carry real dependency meaning, but
   do not invent new dependency edges just to improve graph shape. Prefer node
-  metadata such as `(uses := ["foo", "bar"])`; use inline `{uses "foo"}[]`
-  only when the source reference is naturally part of the translated prose.
+  metadata such as `(uses := "foo, bar")`; use inline `{uses "foo"}[]` only
+  when the source reference is naturally part of the translated prose.
 - Translate TeX `\ref{...}` references to blueprint nodes as inline
   `{bpref "..."}[]` links when the prose is only pointing at the node and
   should not add a dependency edge.

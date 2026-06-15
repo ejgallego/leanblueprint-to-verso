@@ -74,7 +74,7 @@ direct-port LT scope and populate it only with real source-backed chapter files.
   chapter organization.
 - When the TeX source has `\uses{...}`, preserve those edges as dependency
   metadata on the relevant node or proof. Prefer block options such as
-  `(uses := ["foo", "bar"])`; use inline `{uses "foo"}[]` only when the source
+  `(uses := "foo, bar")`; use inline `{uses "foo"}[]` only when the source
   reference is naturally part of the translated prose.
 - When the TeX source has `\ref{...}` pointing at a blueprint node without
   dependency meaning, translate it as inline `{bpref "..."}[]` instead of
