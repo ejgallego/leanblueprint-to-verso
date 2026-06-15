@@ -25,22 +25,18 @@ Faithfulness`) are accepted aliases for the same workflow.
   lemma, corollary, definition, or proof into a generic `:::theorem` wrapper.
 - Do not use `:::theorem` as a generic wrapper for theorem-like source blocks.
 - Preserve TeX `\uses{...}` edges when they carry real dependency meaning, but
-  do not invent new dependency edges just to improve graph shape.
-- Translate TeX `\ref{...}` references to blueprint nodes as `{bpref "..."}[]`
-  when the prose is only pointing at the node and should not add a dependency
-  edge.
-- When a standalone line would otherwise consist only of consecutive
-  `{uses "..."}[]` references, rewrite it deterministically as a sentence that
-  starts with `Uses`.
-- Use exactly `Uses {uses "..."}[].` for one edge, `Uses {uses "..."}[] and
-  {uses "..."}[].` for two edges, and `Uses {uses "..."}[], {uses "..."}[],
-  and {uses "..."}[].` for three or more edges.
-- Do not paraphrase, reorder, or integrate those standalone `Uses ...` lines
-  into surrounding prose; this is a presentation-only normalization that
-  applies equally to statements and proofs.
+  do not invent new dependency edges just to improve graph shape. Prefer node
+  metadata such as `(uses := ["foo", "bar"])`; use inline `{uses "foo"}[]`
+  only when the source reference is naturally part of the translated prose.
+- Translate TeX `\ref{...}` references to blueprint nodes as inline
+  `{bpref "..."}[]` links when the prose is only pointing at the node and
+  should not add a dependency edge.
+- Do not introduce standalone prose lines that exist only to display
+  dependency edges; put those edges in `(uses := ...)` on the node instead.
 - Treat metadata cleanup as a second phase of LT rather than as a substitute
   for LT. First pair the text with a source witness, then tighten
-  `(lean := "...")`, `{uses "..."}[]`, and `{bpref "..."}[]`.
+  `(lean := "...")`, `(uses := ...)`, inline `{uses "..."}[]` where it is
+  natural in prose, and `{bpref "..."}[]`.
 - Treat dependency metadata such as `uses_origin`, `uses_intent`, inline
   `origin` / `intent`, and `autoDeps` as curation or generated-dependency
   metadata, not as part of the first LT port. Source TeX `\uses{...}` edges

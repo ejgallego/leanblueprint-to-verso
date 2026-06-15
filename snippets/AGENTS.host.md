@@ -32,21 +32,16 @@
 - Treat the host formalization as the source of truth.
 - Prefer `(lean := "...")` links to real declarations rather than duplicating
   Lean code in blueprint modules.
-- Preserve TeX `\uses{...}` edges as Verso `{uses "..."}[]` references inside
-  the relevant node or proof, not just in free prose.
-- Translate TeX `\ref{...}` references to blueprint nodes as `{bpref "..."}[]`
-  when the source is only pointing at the node and should not add a dependency
-  edge. Do not upgrade these to `{uses "..."}[]` unless the source has
-  `\uses{...}` or this repo explicitly wants a graph dependency.
-- When a standalone line would otherwise consist only of consecutive
-  `{uses "..."}[]` references, rewrite it deterministically as a sentence that
-  starts with `Uses`.
-- Use exactly `Uses {uses "..."}[].` for one edge, `Uses {uses "..."}[] and
-  {uses "..."}[].` for two edges, and `Uses {uses "..."}[], {uses "..."}[],
-  and {uses "..."}[].` for three or more edges.
-- Do not paraphrase, reorder, or integrate those standalone `Uses ...` lines
-  into surrounding prose; this is a presentation-only normalization that
-  applies equally to statements and proofs.
+- Preserve TeX `\uses{...}` edges as Verso dependency metadata on the relevant
+  node or proof. Prefer block options such as `(uses := ["foo", "bar"])`; use
+  inline `{uses "foo"}[]` only when the source reference is naturally part of
+  the translated prose.
+- Translate TeX `\ref{...}` references to blueprint nodes as inline
+  `{bpref "..."}[]` links when the source is only pointing at the node and
+  should not add a dependency edge. Do not upgrade these to `uses` unless the
+  source has `\uses{...}` or this repo explicitly wants a graph dependency.
+- Do not introduce standalone prose lines that exist only to display
+  dependency edges; put those edges in `(uses := ...)` on the node instead.
 - Keep prose as prose unless the source really gives a graph-visible theorem,
   definition, lemma, corollary, or proof-style object.
 - Preserve TeX environment kind faithfully. Use `:::lemma_` for TeX
@@ -59,7 +54,8 @@
   `tex` block over rewriting it into placeholder prose.
 - Treat metadata cleanup as a second phase of LT rather than as a substitute
   for LT. First localize the text with a `tex` witness, then tighten
-  `(lean := "...")`, `{uses "..."}[]`, and `{bpref "..."}[]`.
+  `(lean := "...")`, `(uses := ...)`, inline `{uses "..."}[]` where it is
+  natural in prose, and `{bpref "..."}[]`.
 - Port coherent chapter blocks rather than scattering small edits across
   unrelated chapters.
 - Keep shared TeX macros in one `TeXPrelude.lean` module.

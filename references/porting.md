@@ -72,24 +72,18 @@ direct-port LT scope and populate it only with real source-backed chapter files.
   theorem-like environments into a generic `:::theorem` wrapper.
 - Do not use `:::theorem` as a generic wrapper for graph noise control or
   chapter organization.
-- When the TeX source has `\uses{...}`, preserve those edges as
-  `{uses "..."}[]` references inside the relevant node or proof rather than in
-  free prose.
+- When the TeX source has `\uses{...}`, preserve those edges as dependency
+  metadata on the relevant node or proof. Prefer block options such as
+  `(uses := ["foo", "bar"])`; use inline `{uses "foo"}[]` only when the source
+  reference is naturally part of the translated prose.
 - When the TeX source has `\ref{...}` pointing at a blueprint node without
-  dependency meaning, translate it as `{bpref "..."}[]` instead of inventing a
-  `{uses "..."}[]` edge.
-- When a standalone line would otherwise consist only of consecutive
-  `{uses "..."}[]` references, rewrite it deterministically as a sentence that
-  starts with `Uses`.
-- Use exactly `Uses {uses "..."}[].` for one edge, `Uses {uses "..."}[] and
-  {uses "..."}[].` for two edges, and `Uses {uses "..."}[], {uses "..."}[],
-  and {uses "..."}[].` for three or more edges.
-- Do not paraphrase, reorder, or integrate those standalone `Uses ...` lines
-  into surrounding prose; this is a presentation-only normalization that
-  applies equally to statements and proofs.
+  dependency meaning, translate it as inline `{bpref "..."}[]` instead of
+  inventing a `uses` edge.
+- Do not introduce standalone prose lines that exist only to display
+  dependency edges; put those edges in `(uses := ...)` on the node instead.
 - Do not treat metadata cleanup as LT completion. First localize the text with
-  a source witness, then tighten `(lean := "...")`, `{uses "..."}[]`, and
-  `{bpref "..."}[]`.
+  a source witness, then tighten `(lean := "...")`, `(uses := ...)`, inline
+  `{uses "..."}[]` where it is natural in prose, and `{bpref "..."}[]`.
 - Do not use `uses_origin`, `uses_intent`, inline `origin` / `intent`, or
   `autoDeps` to compensate for an incomplete direct port. They are useful for
   later human curation and generated/formalization-owned dependency edges, but

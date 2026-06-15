@@ -52,22 +52,17 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint source to
 - Treat the host formalization as the source of truth.
 - Prefer `(lean := "...")` links to existing declarations instead of copying
   Lean code into blueprint pages.
-- Preserve TeX `\uses{...}` edges as Verso `{uses "..."}[]` references inside
-  the relevant theorem, definition, or proof nodes rather than leaving them in
-  free prose.
-- Translate TeX `\ref{...}` references to blueprint nodes as `{bpref "..."}[]`
-  when the source is only pointing at the node and should not add a dependency
-  edge. Do not upgrade these to `{uses "..."}[]` unless the source has
-  `\uses{...}` or the host project explicitly wants a graph dependency.
-- When a standalone line would otherwise consist only of consecutive
-  `{uses "..."}[]` references, rewrite it deterministically as a sentence that
-  starts with `Uses`.
-- Use exactly `Uses {uses "..."}[].` for one edge, `Uses {uses "..."}[] and
-  {uses "..."}[].` for two edges, and `Uses {uses "..."}[], {uses "..."}[],
-  and {uses "..."}[].` for three or more edges.
-- Do not paraphrase, reorder, or integrate those standalone `Uses ...` lines
-  into surrounding prose; this is a presentation-only normalization that
-  applies equally to statements and proofs.
+- Preserve TeX `\uses{...}` edges as Verso dependency metadata on the relevant
+  theorem, definition, or proof node. Prefer block options such as
+  `(uses := ["foo", "bar"])`; use inline `{uses "foo"}[]` only when the source
+  reference is naturally part of the translated prose.
+- Translate TeX `\ref{...}` references to blueprint nodes as inline
+  `{bpref "..."}[]` links when the source is only pointing at the node and
+  should not add a dependency edge. Do not upgrade these to `uses` unless the
+  source has `\uses{...}` or the host project explicitly wants a graph
+  dependency.
+- Do not introduce standalone prose lines that exist only to display
+  dependency edges; put those edges in `(uses := ...)` on the node instead.
 - Keep prose as prose unless the source really gives a graph-visible theorem,
   definition, lemma, corollary, or proof-style object.
 - Preserve TeX environment kind faithfully. Use `:::lemma_` for source lemmas,
@@ -80,7 +75,8 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint source to
   `tex` block over rewriting it into placeholder prose.
 - Treat metadata cleanup as a second phase of LT rather than as a substitute
   for LT. First localize the text with a `tex` witness, then tighten
-  `(lean := "...")`, `{uses "..."}[]`, and `{bpref "..."}[]`.
+  `(lean := "...")`, `(uses := ...)`, inline `{uses "..."}[]` where it is
+  natural in prose, and `{bpref "..."}[]`.
 - If a chapter is only partially ported, continue with the next coherent
   section block instead of scattering edits across unrelated files.
 - Keep shared macros in one `TeXPrelude` module.
