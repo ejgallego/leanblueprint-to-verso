@@ -178,6 +178,51 @@ Alpha.
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertEqual(result.stdout.strip(), '')
 
+    def test_cli_accepts_dependency_list_label_uses_authorized_by_source(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::theorem "foo" (uses := ["bar", -"excluded", Demo.formalDep])
+Alpha.
+:::
+```tex "foo"
+\\begin{theorem}
+\\label{foo}
+\\uses{bar}
+Alpha.
+\\end{theorem}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), '')
+
+    def test_cli_reports_local_only_dependency_list_label_uses(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::theorem "foo" (uses := ["bar", -"excluded", Demo.formalDep])
+Alpha.
+:::
+```tex "foo"
+\\begin{theorem}
+\\label{foo}
+Alpha.
+\\end{theorem}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("extra uses ['bar']", result.stdout)
+            self.assertNotIn("excluded", result.stdout)
+            self.assertNotIn("Demo.formalDep", result.stdout)
+
     def test_cli_accepts_inline_use_metadata(self) -> None:
         content = """#doc (Manual) "Demo" =>
 

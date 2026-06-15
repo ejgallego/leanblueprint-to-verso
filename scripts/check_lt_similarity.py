@@ -179,7 +179,9 @@ BPREF_RE = re.compile(r'\{bpref\s+"[^"]+"\}\[(?P<body>[^\]]*)\]')
 BPREF_CAPTURE_RE = re.compile(r'\{bpref\s+"([^"]+)"\}\[[^\]]*\]')
 REF_RE = re.compile(r'\{ref\s+"[^"]+"(?:\s+\([^{}]*\))*\}\[[^\]]*\]')
 REF_CAPTURE_RE = re.compile(r'\{ref\s+"([^"]+)"(?:\s+\([^{}]*\))*\}\[[^\]]*\]')
-VERSO_BLOCK_USES_CAPTURE_RE = re.compile(r'\(\s*uses\s*:=\s*"([^"]+)"\s*\)')
+VERSO_BLOCK_USES_CAPTURE_RE = re.compile(
+    r'\(\s*uses\s*:=\s*(?P<value>"[^"]*"|\[[^\]]*\])\s*\)'
+)
 VERSO_BLOCK_USES_ORIGIN_RE = re.compile(r'\(\s*uses_origin\s*:=\s*"([^"]+)"\s*\)')
 VERSO_OPTION_RE = re.compile(r'\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*:=\s*"([^"]*)"\s*\)')
 USES_LINE_RE = re.compile(
@@ -322,6 +324,63 @@ def split_csv_items(value: str) -> set[str]:
     return {item.strip() for item in value.split(",") if item.strip()}
 
 
+def split_dependency_list_items(value: str) -> list[str]:
+    items: list[str] = []
+    current: list[str] = []
+    in_string = False
+    escaped = False
+    for char in value:
+        if escaped:
+            current.append(char)
+            escaped = False
+            continue
+        if char == "\\" and in_string:
+            current.append(char)
+            escaped = True
+            continue
+        if char == '"':
+            current.append(char)
+            in_string = not in_string
+            continue
+        if char == "," and not in_string:
+            item = "".join(current).strip()
+            if item:
+                items.append(item)
+            current = []
+            continue
+        current.append(char)
+    item = "".join(current).strip()
+    if item:
+        items.append(item)
+    return items
+
+
+def strip_quoted_string(value: str) -> str | None:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+        return value[1:-1].strip()
+    return None
+
+
+def parse_verso_uses_value(value: str) -> set[str]:
+    value = value.strip()
+    raw_string = strip_quoted_string(value)
+    if raw_string is not None:
+        return split_csv_items(raw_string)
+    if not (value.startswith("[") and value.endswith("]")):
+        return set()
+
+    items: set[str] = set()
+    for raw_item in split_dependency_list_items(value[1:-1]):
+        item = raw_item.strip()
+        if item.startswith("-"):
+            continue
+        label = strip_quoted_string(item)
+        if label is not None:
+            items.add(label)
+    return items
+
+
 def option_value(options: str, name: str) -> str | None:
     for match in VERSO_OPTION_RE.finditer(options):
         if match.group(1) == name:
@@ -340,7 +399,7 @@ def extract_verso_uses(text: str) -> set[str]:
     block_origin = block_origin_match.group(1).strip().lower() if block_origin_match else "manual"
     if block_origin != "automatic":
         for match in VERSO_BLOCK_USES_CAPTURE_RE.finditer(header):
-            items |= split_csv_items(match.group(1))
+            items |= parse_verso_uses_value(match.group("value"))
 
     for match in USES_CAPTURE_RE.finditer(text):
         origin = option_value(match.group("opts"), "origin")

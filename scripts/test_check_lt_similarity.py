@@ -12,7 +12,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from check_lt_similarity import paired_blocks, score_pair  # noqa: E402
+from check_lt_similarity import extract_verso_uses, paired_blocks, score_pair  # noqa: E402
 from check_lt_source_pairs import Block  # noqa: E402
 
 
@@ -76,6 +76,20 @@ Alpha.
         self.assertEqual(score.verso_lean, {"Baz.qux", "Demo.quux"})
         self.assertEqual(score.tex_lean, {"Baz.qux", "Demo.quux"})
         self.assertEqual(score.metadata_diff_count, 0)
+
+    def test_block_uses_string_option_is_extracted(self) -> None:
+        self.assertEqual(
+            extract_verso_uses(':::theorem "demo" (uses := "foo, bar")\nAlpha.'),
+            {"foo", "bar"},
+        )
+
+    def test_dependency_list_uses_extracts_positive_string_labels(self) -> None:
+        self.assertEqual(
+            extract_verso_uses(
+                ':::theorem "demo" (uses := ["foo", -"bar", Demo.formalDep])\nAlpha.'
+            ),
+            {"foo"},
+        )
 
     def test_inline_role_payloads_are_visible_text_and_metadata_is_extracted(self) -> None:
         verso = verso_block(
