@@ -81,6 +81,7 @@ class UpdateCiTests(unittest.TestCase):
             self.assertTrue(script_path.exists())
             self.assertTrue(script_path.stat().st_mode & stat.S_IXUSR)
             script_text = script_path.read_text(encoding="utf-8")
+            self.assertIn("scripts/ci-pre-build.sh", script_text)
             self.assertIn("ensure_dependency_cache.py --project-root . --warm-cache", script_text)
             self.assertIn("ensure_dependency_cache.py --project-root .\n", script_text)
             self.assertNotIn("lake build VersoManual", script_text)

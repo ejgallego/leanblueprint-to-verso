@@ -95,6 +95,10 @@ and `lt_audit.py` chapter builds, first runs the dependency-cache guard. The
 guard fetches the mathlib cache and refuses to continue if mathlib artifacts are
 still incomplete, so a site smoke cannot silently compile mathlib.
 
+Generated `scripts/ci-pages.sh` runs an executable project-owned
+`scripts/ci-pre-build.sh` hook before cache warming when a consumer needs local
+CI setup before the standard build.
+
 ## More Detailed Docs
 
 Start a new port from an empty directory:
