@@ -144,7 +144,11 @@ class HarnessLibTests(unittest.TestCase):
         )
         self.assertEqual(
             verso_math_lint_option_name("main"),
-            "verso.blueprint.math.lint",
+            "weak.verso.blueprint.math.lint",
+        )
+        self.assertEqual(
+            verso_math_lint_option_name("44f0a55c03f512e4e11cc38f8b58dd9b90298b2d"),
+            "weak.verso.blueprint.math.lint",
         )
 
     def test_find_lake_lean_option_helpers_read_generated_policy_options(self) -> None:

@@ -33,11 +33,6 @@ DEFAULT_LT_NODE_KIND_PAIRS = (
 DEFAULT_NATIVE_WARNINGS = False
 DEFAULT_DOCSTRING_WARNINGS = False
 DEFAULT_STRICT_EXTERNAL_CODE = True
-WEAK_VERSO_OPTION_REFS = frozenset(
-    {"v4.28.0", "v4.29.0", "v4.30.0", "v4.30.0-rc2", "v4.31.0"}
-)
-
-
 @dataclass(frozen=True)
 class HarnessConfig:
     package_name: str
@@ -100,9 +95,7 @@ def normalize_verso_blueprint_ref(ref: str) -> str:
 
 
 def verso_blueprint_uses_weak_options(ref: str | None) -> bool:
-    if ref is None:
-        return False
-    return normalize_verso_blueprint_ref(ref) in WEAK_VERSO_OPTION_REFS
+    return True
 
 
 def verso_blueprint_option_name(ref: str | None, suffix: str) -> str:
