@@ -160,6 +160,23 @@ class CheckHarnessTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("status: ok", result.stdout)
 
+    def test_check_harness_accepts_weak_policy_for_v431(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_project(
+                root,
+                lean_toolchain="leanprover/lean4:v4.31.0",
+                verso_ref="v4.31.0",
+                math_lint_option="weak.verso.blueprint.math.lint",
+                warn_line_length_option="weak.verso.code.warnLineLength",
+                strict_external_code=True,
+                strict_external_code_option="weak.verso.blueprint.externalCode.strictResolve",
+                lake_strict_external_code=True,
+            )
+            result = run_check(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("status: ok", result.stdout)
+
     def test_check_harness_rejects_v428_strict_external_code_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

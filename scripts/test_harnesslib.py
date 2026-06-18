@@ -131,6 +131,18 @@ class HarnessLibTests(unittest.TestCase):
             "weak.verso.code.warnLineLength",
         )
         self.assertEqual(
+            verso_math_lint_option_name("v4.31.0"),
+            "weak.verso.blueprint.math.lint",
+        )
+        self.assertEqual(
+            verso_strict_external_code_option_name("v4.31.0"),
+            "weak.verso.blueprint.externalCode.strictResolve",
+        )
+        self.assertEqual(
+            verso_warn_line_length_option_name("v4.31.0"),
+            "weak.verso.code.warnLineLength",
+        )
+        self.assertEqual(
             verso_math_lint_option_name("main"),
             "verso.blueprint.math.lint",
         )
