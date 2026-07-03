@@ -88,7 +88,7 @@ class UpdateCiTests(unittest.TestCase):
             self.assertIn("lake build +DemoMain", script_text)
             self.assertNotIn(":deps", script_text)
             self.assertNotIn("lake build blueprint-gen", script_text)
-            self.assertIn("lake env lean --run DemoMain.lean", script_text)
+            self.assertIn("lake lean DemoMain.lean -- --run DemoMain.lean", script_text)
             self.assertIn("check_generated_site.py --project-root . --site-dir _out/site/html-multi", script_text)
             self.assertNotIn("blueprint-preview-manifest.json", script_text)
             self.assertNotIn("test -f _out/site/html-multi/-verso-data", script_text)

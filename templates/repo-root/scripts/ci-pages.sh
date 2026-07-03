@@ -21,7 +21,7 @@ step "checking dependency cache after build"
 python3 tools/verso-harness/scripts/ensure_dependency_cache.py --project-root .
 
 step "generating site"
-lake env lean --run __BLUEPRINT_MAIN__.lean --output _out/site 2>&1 | python3 scripts/filter_docstring_warnings.py --project-root .
+lake lean __BLUEPRINT_MAIN__.lean -- --run __BLUEPRINT_MAIN__.lean --output _out/site 2>&1 | python3 scripts/filter_docstring_warnings.py --project-root .
 
 step "checking generated site"
 python3 tools/verso-harness/scripts/check_generated_site.py --project-root . --site-dir _out/site/html-multi
