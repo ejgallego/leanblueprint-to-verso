@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import select
 import stat
 import subprocess
 import sys
@@ -163,6 +164,31 @@ class UpdateCiTests(unittest.TestCase):
             )
             self.assertEqual(filter_result.returncode, 0, msg=filter_result.stdout + filter_result.stderr)
             self.assertEqual(filter_result.stdout, "visible line\n")
+
+    def test_filter_streams_visible_lines_before_input_closes(self) -> None:
+        filter_path = ROOT / "templates" / "repo-root" / "scripts" / "filter_docstring_warnings.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            process = subprocess.Popen(
+                [sys.executable, str(filter_path), "--project-root", tmp],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            assert process.stdin is not None
+            assert process.stdout is not None
+            assert process.stderr is not None
+            try:
+                process.stdin.write("visible line\n")
+                process.stdin.flush()
+                ready, _, _ = select.select([process.stdout], [], [], 2.0)
+                self.assertTrue(ready, "filter buffered output until stdin closed")
+                self.assertEqual(process.stdout.readline(), "visible line\n")
+            finally:
+                process.stdin.close()
+                process.wait(timeout=5)
+                process.stdout.close()
+                process.stderr.close()
 
 
 if __name__ == "__main__":

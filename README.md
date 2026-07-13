@@ -98,6 +98,8 @@ still incomplete, so a site smoke cannot silently compile mathlib.
 Generated `scripts/ci-pages.sh` runs an executable project-owned
 `scripts/ci-pre-build.sh` hook before cache warming when a consumer needs local
 CI setup before the standard build.
+Its warning filter flushes every visible line so long Lean builds continue to
+show progress while docstring noise is suppressed.
 
 ## More Detailed Docs
 
