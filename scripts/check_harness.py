@@ -30,6 +30,11 @@ PLACEHOLDER_PATTERN = re.compile(r"__[A-Z0-9_]+__")
 CI_DEPS_TARGET_PATTERN = re.compile(r"\blake\s+build\s+[^\n|;&]*:deps\b")
 CI_EXE_TARGET_PATTERN = re.compile(r"\blake\s+build\s+blueprint-gen\b")
 CI_LAKE_BUILD_PATTERN = re.compile(r"\blake\s+build\b")
+CI_LAKE_LEAN_PATTERN = re.compile(r"\blake\s+lean\b")
+CI_VBP_BUILD_PATTERN = re.compile(r"\blake\s+exe\s+vbp\s+build\b")
+CI_VBP_OUTPUT_PATTERN = re.compile(
+    r"\blake\s+exe\s+vbp\s+build\b[^\n|;&]*\s--output\s+_out/site(?:\s|$)"
+)
 CI_CACHE_GUARD_PATTERN = re.compile(r"\bensure_dependency_cache\.py\b")
 CI_GENERATED_SITE_CHECK_PATTERN = re.compile(r"\bcheck_generated_site\.py\b")
 
@@ -173,11 +178,21 @@ def main() -> int:
     )
     if script_path.exists():
         script_text = script_path.read_text(encoding="utf-8")
-        build_match = CI_LAKE_BUILD_PATTERN.search(script_text)
+        build_match = CI_VBP_BUILD_PATTERN.search(script_text)
         guard_match = CI_CACHE_GUARD_PATTERN.search(script_text)
         if build_match and (guard_match is None or guard_match.start() > build_match.start()):
             mismatches.append(
-                "scripts/ci-pages.sh must run the dependency cache guard before `lake build`; "
+                "scripts/ci-pages.sh must run the dependency cache guard before `lake exe vbp build`; "
+                "run update_ci.py to refresh helper-owned CI files"
+            )
+        if build_match is None:
+            mismatches.append(
+                "scripts/ci-pages.sh must generate the site with `lake exe vbp build`; "
+                "run update_ci.py to refresh helper-owned CI files"
+            )
+        elif not CI_VBP_OUTPUT_PATTERN.search(script_text):
+            mismatches.append(
+                "scripts/ci-pages.sh must pass `--output _out/site` to `lake exe vbp build`; "
                 "run update_ci.py to refresh helper-owned CI files"
             )
         if CI_DEPS_TARGET_PATTERN.search(script_text):
@@ -189,6 +204,16 @@ def main() -> int:
             mismatches.append(
                 "scripts/ci-pages.sh must not build the `blueprint-gen` executable; "
                 "that target can force Lake to build native artifacts for external dependencies"
+            )
+        if CI_LAKE_BUILD_PATTERN.search(script_text):
+            mismatches.append(
+                "scripts/ci-pages.sh must not invoke `lake build`; "
+                "use `lake exe vbp build` so Blueprint generation does not request native targets"
+            )
+        if CI_LAKE_LEAN_PATTERN.search(script_text):
+            mismatches.append(
+                "scripts/ci-pages.sh must not invoke the legacy `lake lean` generator path; "
+                "use `lake exe vbp build`"
             )
         if not CI_GENERATED_SITE_CHECK_PATTERN.search(script_text):
             mismatches.append(
