@@ -53,6 +53,9 @@ Use `scripts/update_ci.py` only for the helper-owned files.
 The generated `blueprint.yml` is intentionally thin. It calls the reusable
 Pages workflow in `verso-blueprint` and is pinned to the same
 `VersoBlueprint` ref declared in the consumer `lakefile.lean`.
+The generated `scripts/ci-pages.sh` invokes
+`lake exe vbp build --output _out/site`; it must not prebuild the Blueprint
+entry point with `lake build` or invoke the legacy `lake lean` generator path.
 
 The generated README is a starting point for the consumer repo and remains
 project-owned after bootstrap. The helper should not rewrite it automatically
