@@ -50,7 +50,8 @@ The startup flow intentionally does not generate synthetic chapter prose.
 
 ## The Three Main Rules
 
-- The upstream math project decides the Lean toolchain.
+- The upstream math project normally decides the Lean toolchain. A reviewed
+  compatibility exception must declare the exact wrapper toolchain explicitly.
 - Every managed repo must have a root `verso-harness.toml` file.
 - New ports use one standard layout; do not invent a new one.
 
@@ -129,8 +130,9 @@ Detailed porting workflow:
 - Generated `.github/workflows/blueprint.yml` files are thin callers into the
   reusable Pages workflow shipped by `verso-blueprint` and pinned to the same
   `VersoBlueprint` ref used in `lakefile.lean`.
-- The helper chooses the matching `VersoBlueprint` branch from the Lean
-  toolchain used by the upstream math project.
+- The helper chooses the matching `VersoBlueprint` branch from the selected
+  wrapper toolchain. Normally that is the upstream math project's toolchain;
+  `harness.wrapper_toolchain_override` records an exceptional exact override.
 - Generated consumers keep the version-appropriate Verso math-lint option
   enabled and disable the noisy `VersoManual` inline-code line-length warning
   via the version-appropriate warn-line-length option set to `0`.

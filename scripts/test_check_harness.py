@@ -32,7 +32,19 @@ def write_harness_project(
     strict_external_code: bool,
     strict_external_code_option: str,
     lake_strict_external_code: bool,
+    formalization_toolchain: str | None = None,
+    wrapper_toolchain_override: str | None = None,
 ) -> None:
+    harness_lines = [
+        '[harness]',
+        'native_warnings = false',
+        'docstring_warnings = false',
+        f"strict_external_code = {'true' if strict_external_code else 'false'}",
+    ]
+    if wrapper_toolchain_override is not None:
+        harness_lines.append(
+            f'wrapper_toolchain_override = "{wrapper_toolchain_override}"'
+        )
     write_file(
         root / "verso-harness.toml",
         "\n".join(
@@ -46,10 +58,7 @@ def write_harness_project(
                 "[lt]",
                 'default_chapters = ["DemoBlueprint/Chapters/SourceChapter.lean"]',
                 "",
-                "[harness]",
-                'native_warnings = false',
-                'docstring_warnings = false',
-                f"strict_external_code = {'true' if strict_external_code else 'false'}",
+                *harness_lines,
                 "",
             ]
         )
@@ -105,7 +114,10 @@ def write_harness_project(
         root / ".github" / "workflows" / "blueprint.yml",
         "name: blueprint\non: workflow_dispatch\njobs: {}\n",
     )
-    write_file(root / "Demo" / "lean-toolchain", lean_toolchain + "\n")
+    write_file(
+        root / "Demo" / "lean-toolchain",
+        (formalization_toolchain or lean_toolchain) + "\n",
+    )
 
 
 def run_check(project_root: Path) -> subprocess.CompletedProcess[str]:
@@ -126,6 +138,44 @@ def run_check(project_root: Path) -> subprocess.CompletedProcess[str]:
 
 
 class CheckHarnessTests(unittest.TestCase):
+    def test_check_harness_accepts_explicit_wrapper_toolchain_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_project(
+                root,
+                lean_toolchain="leanprover/lean4:v4.33.0-rc2",
+                formalization_toolchain="leanprover/lean4:v4.33.0-rc1",
+                wrapper_toolchain_override="leanprover/lean4:v4.33.0-rc2",
+                verso_ref="v4.33.0",
+                math_lint_option="weak.verso.blueprint.math.lint",
+                warn_line_length_option="weak.verso.code.warnLineLength",
+                strict_external_code=True,
+                strict_external_code_option="weak.verso.blueprint.externalCode.strictResolve",
+                lake_strict_external_code=True,
+            )
+            result = run_check(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("status: ok", result.stdout)
+
+    def test_check_harness_rejects_wrong_explicit_wrapper_toolchain(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_project(
+                root,
+                lean_toolchain="leanprover/lean4:v4.33.0-rc1",
+                formalization_toolchain="leanprover/lean4:v4.33.0-rc1",
+                wrapper_toolchain_override="leanprover/lean4:v4.33.0-rc2",
+                verso_ref="v4.33.0",
+                math_lint_option="weak.verso.blueprint.math.lint",
+                warn_line_length_option="weak.verso.code.warnLineLength",
+                strict_external_code=True,
+                strict_external_code_option="weak.verso.blueprint.externalCode.strictResolve",
+                lake_strict_external_code=True,
+            )
+            result = run_check(root)
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("harness.wrapper_toolchain_override", result.stdout)
+
     def test_check_harness_accepts_weak_policy_for_v428(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

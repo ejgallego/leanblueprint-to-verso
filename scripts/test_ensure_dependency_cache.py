@@ -22,7 +22,20 @@ def write_mathlib_manifest(root: Path) -> None:
     (root / "lake-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
 
-def write_harness_config(root: Path, formalization_path: str = "Demo") -> None:
+def write_harness_config(
+    root: Path,
+    formalization_path: str = "Demo",
+    wrapper_toolchain_override: str | None = None,
+) -> None:
+    override_lines = (
+        [
+            "[harness]",
+            f'wrapper_toolchain_override = "{wrapper_toolchain_override}"',
+            "",
+        ]
+        if wrapper_toolchain_override is not None
+        else []
+    )
     (root / "verso-harness.toml").write_text(
         "\n".join(
             [
@@ -35,6 +48,7 @@ def write_harness_config(root: Path, formalization_path: str = "Demo") -> None:
                 "[lt]",
                 "default_chapters = []",
                 "",
+                *override_lines,
             ]
         )
         + "\n",
@@ -113,6 +127,31 @@ class EnsureDependencyCacheTests(unittest.TestCase):
             self.assertEqual(
                 package_toolchain.read_text(encoding="utf-8").strip(),
                 "leanprover/lean4:v4.30.0",
+            )
+
+    def test_sync_project_toolchain_selection_uses_explicit_wrapper_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_config(
+                root,
+                wrapper_toolchain_override="leanprover/lean4:v4.33.0-rc2",
+            )
+            (root / "lean-toolchain").write_text(
+                "leanprover/lean4:v4.33.0-rc2\n",
+                encoding="utf-8",
+            )
+            (root / "Demo").mkdir()
+            (root / "Demo" / "lean-toolchain").write_text(
+                "leanprover/lean4:v4.33.0-rc1\n",
+                encoding="utf-8",
+            )
+
+            changed = ensure_dependency_cache.sync_project_toolchain_selection(root)
+
+            self.assertEqual(changed, [])
+            self.assertEqual(
+                (root / "lean-toolchain").read_text(encoding="utf-8").strip(),
+                "leanprover/lean4:v4.33.0-rc2",
             )
 
     def test_sync_project_toolchain_selection_noops_without_vbp_checkout(self) -> None:

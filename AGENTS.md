@@ -80,8 +80,10 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint source to
 - If a chapter is only partially ported, continue with the next coherent
   section block instead of scattering edits across unrelated files.
 - Keep shared macros in one `TeXPrelude` module.
-- The upstream formalization determines the Lean toolchain. Keep the root
-  `lean-toolchain` equal to the upstream value, and choose the matching
+- The upstream formalization normally determines the Lean toolchain. Keep the
+  root `lean-toolchain` equal to the upstream value unless the project declares
+  an exact `harness.wrapper_toolchain_override` compatibility exception, and
+  choose the matching
   `VersoBlueprint` base release branch `v<major>.<minor>.<patch>`. For Lean
   prereleases such as `v4.30.0-rc2`, use `VersoBlueprint` branch `v4.30.0`
   unless explicit compatibility work says otherwise.

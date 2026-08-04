@@ -45,6 +45,7 @@ class HarnessConfig:
     native_warnings: bool
     docstring_warnings: bool
     strict_external_code: bool
+    wrapper_toolchain_override: str | None
 
 
 def resolve_project_root(raw: Path | None) -> Path:
@@ -306,6 +307,15 @@ def load_config(project_root: Path) -> HarnessConfig:
         if "strict_external_code" in harness_section
         else DEFAULT_STRICT_EXTERNAL_CODE
     )
+    wrapper_toolchain_override = (
+        require_string(
+            harness_section,
+            "wrapper_toolchain_override",
+            "harness.wrapper_toolchain_override",
+        )
+        if "wrapper_toolchain_override" in harness_section
+        else None
+    )
     if "verso_blueprint_ref" in harness_section:
         raise SystemExit(
             f"{CONFIG_FILENAME}: harness.verso_blueprint_ref is no longer supported; "
@@ -338,6 +348,7 @@ def load_config(project_root: Path) -> HarnessConfig:
         native_warnings=native_warnings,
         docstring_warnings=docstring_warnings,
         strict_external_code=strict_external_code,
+        wrapper_toolchain_override=wrapper_toolchain_override,
     )
 
 

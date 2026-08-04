@@ -8,12 +8,17 @@ import os
 import shutil
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from _harnesslib import load_config  # noqa: E402
+
+
 CACHE_GET_COMMAND = ("lake", "exe", "cache", "get")
-CONFIG_FILENAME = "verso-harness.toml"
 GUARDED_MODULE_ROOTS = {
     "mathlib": ("Mathlib",),
 }
@@ -101,23 +106,23 @@ def read_toolchain(path: Path) -> str | None:
 
 
 def read_formalization_toolchain(project_root: Path) -> str | None:
-    config_path = project_root / CONFIG_FILENAME
     try:
-        data = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, tomllib.TOMLDecodeError):
+        config = load_config(project_root)
+    except SystemExit:
         return None
-
-    formalization_path = data.get("formalization_path")
-    if not isinstance(formalization_path, str) or not formalization_path.strip():
-        return None
-    path = Path(formalization_path)
-    if path.is_absolute():
-        return None
-    return read_toolchain(project_root / path / "lean-toolchain")
+    return read_toolchain(project_root / config.formalization_path / "lean-toolchain")
 
 
 def selected_project_toolchain(project_root: Path) -> str | None:
-    return read_formalization_toolchain(project_root) or read_toolchain(project_root / "lean-toolchain")
+    try:
+        config = load_config(project_root)
+    except SystemExit:
+        config = None
+    if config is not None and config.wrapper_toolchain_override is not None:
+        return config.wrapper_toolchain_override
+    return read_formalization_toolchain(project_root) or read_toolchain(
+        project_root / "lean-toolchain"
+    )
 
 
 def sync_toolchain_file(path: Path, selected_toolchain: str) -> bool:

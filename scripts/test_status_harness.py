@@ -119,7 +119,17 @@ def write_host_project(
     verso_rev: str | None,
     package_toolchain: str | None = None,
     compact_at_syntax: bool = False,
+    wrapper_toolchain_override: str | None = None,
 ) -> None:
+    harness_lines = (
+        [
+            "[harness]",
+            f'wrapper_toolchain_override = "{wrapper_toolchain_override}"',
+            "",
+        ]
+        if wrapper_toolchain_override is not None
+        else []
+    )
     write_file(
         project_root / "verso-harness.toml",
         "\n".join(
@@ -133,6 +143,7 @@ def write_host_project(
                 "[lt]",
                 'default_chapters = ["DemoBlueprint/Chapters/SourceChapter.lean"]',
                 "",
+                *harness_lines,
             ]
         )
         + "\n",
@@ -197,6 +208,64 @@ def write_host_project(
 
 
 class StatusHarnessTests(unittest.TestCase):
+    def test_status_harness_accepts_explicit_wrapper_toolchain_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, _, helper_checkout, _, _ = create_remote_with_checkout(
+                root,
+                "helper",
+                branch="main",
+                initial_files={"README.md": "helper\n"},
+            )
+            verso_remote, _, _, verso_rev, _ = create_remote_with_checkout(
+                root,
+                "verso",
+                branch="v4.33.0",
+                initial_files={"README.md": "verso\n"},
+            )
+            _, _, formalization_checkout, _, _ = create_remote_with_checkout(
+                root,
+                "formalization",
+                branch="main",
+                initial_files={"lean-toolchain": "leanprover/lean4:v4.33.0-rc1\n"},
+            )
+
+            project_root = root / "project"
+            write_host_project(
+                project_root,
+                formalization_path="Formalization",
+                lean_toolchain="leanprover/lean4:v4.33.0-rc2",
+                verso_url=str(verso_remote),
+                verso_ref="v4.33.0",
+                verso_rev=verso_rev,
+                wrapper_toolchain_override="leanprover/lean4:v4.33.0-rc2",
+            )
+            shutil.copytree(formalization_checkout, project_root / "Formalization")
+
+            result = run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_harness.py"),
+                    "--project-root",
+                    str(project_root),
+                    "--helper-root",
+                    str(helper_checkout),
+                    "--offline",
+                ],
+                cwd=ROOT,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn(
+                "wrapper_override: leanprover/lean4:v4.33.0-rc2",
+                result.stdout,
+            )
+            self.assertIn(
+                "accepted explicit wrapper/formalization toolchain override",
+                result.stdout,
+            )
+            self.assertIn("expected_verso_ref: v4.33.0", result.stdout)
+            self.assertIn("summary: ok", result.stdout)
+
     def test_status_harness_reports_updates_for_helper_upstream_and_verso(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

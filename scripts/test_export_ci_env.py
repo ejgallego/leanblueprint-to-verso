@@ -43,6 +43,40 @@ default_chapters = []
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("formalization_path=Demo", result.stdout)
             self.assertIn("blueprint_main_path=DemoMain.lean", result.stdout)
+            self.assertIn("use_formalization_toolchain=true", result.stdout)
+
+    def test_exports_wrapper_toolchain_override_selection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "verso-harness.toml").write_text(
+                """package_name = \"DemoBlueprint\"
+blueprint_main = \"DemoMain\"
+formalization_path = \"Demo\"
+chapter_root = \"DemoBlueprint/Chapters\"
+tex_source_glob = \"./blueprint/src/chapter/main.tex\"
+
+[lt]
+default_chapters = []
+
+[harness]
+wrapper_toolchain_override = \"leanprover/lean4:v4.33.0-rc2\"
+""",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "export_ci_env.py"),
+                    "--project-root",
+                    str(root),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("use_formalization_toolchain=false", result.stdout)
 
 
 if __name__ == "__main__":
