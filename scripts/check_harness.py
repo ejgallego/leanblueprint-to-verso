@@ -133,12 +133,25 @@ def main() -> int:
             expected_toolchain = root_toolchain_path.read_text(encoding="utf-8").strip()
         if formalization_toolchain_path.exists():
             formalization_toolchain = formalization_toolchain_path.read_text(encoding="utf-8").strip()
-            if expected_toolchain is not None and formalization_toolchain != expected_toolchain:
+            if (
+                config.wrapper_toolchain_override is None
+                and expected_toolchain is not None
+                and formalization_toolchain != expected_toolchain
+            ):
                 mismatches.append(
                     "root lean-toolchain must match the vendored formalization "
                     f"({expected_toolchain!r} != {formalization_toolchain!r})"
                 )
-            expected_toolchain = formalization_toolchain
+            if config.wrapper_toolchain_override is None:
+                expected_toolchain = formalization_toolchain
+        if config.wrapper_toolchain_override is not None:
+            if expected_toolchain != config.wrapper_toolchain_override:
+                mismatches.append(
+                    "root lean-toolchain must match "
+                    f"{CONFIG_FILENAME} harness.wrapper_toolchain_override "
+                    f"({expected_toolchain!r} != {config.wrapper_toolchain_override!r})"
+                )
+            expected_toolchain = config.wrapper_toolchain_override
 
         for relative in [
             Path(config.formalization_path),

@@ -60,6 +60,7 @@ class HarnessConfigTests(unittest.TestCase):
             self.assertFalse(config.native_warnings)
             self.assertFalse(config.docstring_warnings)
             self.assertTrue(config.strict_external_code)
+            self.assertIsNone(config.wrapper_toolchain_override)
 
     def test_custom_node_kind_pairs_extend_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -91,6 +92,23 @@ class HarnessConfigTests(unittest.TestCase):
             self.assertTrue(config.native_warnings)
             self.assertTrue(config.docstring_warnings)
             self.assertFalse(config.strict_external_code)
+
+    def test_wrapper_toolchain_override_can_be_configured(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root)
+            config_path = root / 'verso-harness.toml'
+            config_path.write_text(
+                config_path.read_text(encoding='utf-8')
+                + '\n[harness]\n'
+                + 'wrapper_toolchain_override = "leanprover/lean4:v4.33.0-rc2"\n',
+                encoding='utf-8',
+            )
+            config = load_config(root)
+            self.assertEqual(
+                config.wrapper_toolchain_override,
+                'leanprover/lean4:v4.33.0-rc2',
+            )
 
     def test_explicit_verso_blueprint_ref_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

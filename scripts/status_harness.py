@@ -236,7 +236,11 @@ def inspect_checkout(name: str, repo: Path, *, offline: bool) -> Section:
     return section
 
 
-def inspect_toolchain(project_root: Path, formalization_root: Path) -> tuple[Section, str | None, str | None]:
+def inspect_toolchain(
+    project_root: Path,
+    formalization_root: Path,
+    wrapper_toolchain_override: str | None = None,
+) -> tuple[Section, str | None, str | None]:
     section = Section("toolchain")
     root_toolchain = read_text(project_root / "lean-toolchain")
     formalization_toolchain = read_text(formalization_root / "lean-toolchain")
@@ -251,10 +255,18 @@ def inspect_toolchain(project_root: Path, formalization_root: Path) -> tuple[Sec
     else:
         section.facts.append(("upstream", formalization_toolchain))
 
-    if root_toolchain and formalization_toolchain and root_toolchain != formalization_toolchain:
+    if wrapper_toolchain_override is not None:
+        section.facts.append(("wrapper_override", wrapper_toolchain_override))
+        if root_toolchain != wrapper_toolchain_override:
+            section.issues.append(
+                "root lean-toolchain does not match harness.wrapper_toolchain_override"
+            )
+        elif formalization_toolchain and root_toolchain != formalization_toolchain:
+            section.notes.append("accepted explicit wrapper/formalization toolchain override")
+    elif root_toolchain and formalization_toolchain and root_toolchain != formalization_toolchain:
         section.issues.append("root lean-toolchain does not match the vendored formalization")
 
-    source = formalization_toolchain or root_toolchain
+    source = wrapper_toolchain_override or formalization_toolchain or root_toolchain
     expected_ref = default_verso_blueprint_ref(source) if source is not None else None
     if expected_ref is not None:
         section.facts.append(("expected_verso_ref", expected_ref))
@@ -364,7 +376,11 @@ def main() -> int:
         inspect_checkout("harness", helper_root, offline=args.offline),
         inspect_checkout("upstream", formalization_root, offline=args.offline),
     ]
-    toolchain_section, expected_ref, expected_toolchain = inspect_toolchain(project_root, formalization_root)
+    toolchain_section, expected_ref, expected_toolchain = inspect_toolchain(
+        project_root,
+        formalization_root,
+        config.wrapper_toolchain_override,
+    )
     sections.append(toolchain_section)
     sections.append(
         inspect_verso_blueprint(
