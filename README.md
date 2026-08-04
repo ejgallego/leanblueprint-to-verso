@@ -76,6 +76,12 @@ Then check that the repo still matches the expected shared setup:
 python3 tools/verso-harness/scripts/check_harness.py --project-root .
 ```
 
+This is a configuration and wiring audit, not a Lean compatibility check. In
+particular, it cannot prove that external declarations named by
+`(lean := "...")` still exist after the formalization pin moves. Resolve those
+links with the normal `scripts/ci-pages.sh` site build or the equivalent remote
+Pages CI before declaring an update compatible.
+
 Run the main direct-port chapter audit commands:
 
 ```bash

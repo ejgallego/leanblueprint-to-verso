@@ -118,6 +118,10 @@ The upstream formalization determines the Lean toolchain. In a consumer repo:
   mutation of the dependency package checkout
 - then refresh caches as needed through the harness scripts
 - then repair any import or syntax fallout in the blueprint modules
+- treat every `(lean := "...")` target as part of the compatibility surface:
+  `check_harness.py` validates configuration only, so run the normal
+  `scripts/ci-pages.sh` site build or equivalent remote Pages CI to catch
+  declarations renamed, replaced, or removed by the formalization update
 
 Do not bundle unrelated blueprint prose edits into a dependency-upgrade change,
 do not bump the consumer toolchain independently of upstream, and do not run raw
