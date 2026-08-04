@@ -102,6 +102,35 @@ def test_skip_fenced_tex() -> None:
         assert suspicious_math_syntax(path) == []
 
 
+def test_obsolete_bold_switch_is_flagged() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = write_tmp(
+            Path(tmpdir),
+            r"""
+            #doc (Manual) "X" =>
+
+            This rendered math uses $`{\bf I}(x)` and can break PDF generation.
+            """,
+        )
+        errs = suspicious_math_syntax(path)
+        assert len(errs) == 1
+        assert "obsolete TeX font switch '\\bf'" in errs[0]
+        assert "\\mathbf" in errs[0]
+
+
+def test_modern_bold_commands_are_ignored() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = write_tmp(
+            Path(tmpdir),
+            r"""
+            #doc (Manual) "X" =>
+
+            This uses $`\mathbf{I}(x)` in math and **bold text** in prose.
+            """,
+        )
+        assert suspicious_math_syntax(path) == []
+
+
 def test_mathy_code_span_is_flagged() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         path = write_tmp(
@@ -202,6 +231,8 @@ if __name__ == "__main__":
     test_missing_closing_backtick()
     test_extra_closing_backtick()
     test_skip_fenced_tex()
+    test_obsolete_bold_switch_is_flagged()
+    test_modern_bold_commands_are_ignored()
     test_mathy_code_span_is_flagged()
     test_lean_name_code_span_is_ignored()
     test_blueprint_tex_marker_code_span_is_ignored()
