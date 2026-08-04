@@ -20,6 +20,7 @@ EXTRA_CLOSING_BACKTICK_RE = re.compile(r"\$`[^`\n]+``")
 MISSING_CLOSING_BACKTICK_RE = re.compile(r"\$`[^`\n$]+\$")
 INLINE_MATH_RE = re.compile(r"\$`[^`\n]*`")
 INLINE_CODE_RE = re.compile(r"(?<!\$)`([^`\n]+)`")
+OBSOLETE_BOLD_SWITCH_RE = re.compile(r"\\bf\b")
 TEX_COMMAND_RE = re.compile(r"\\([A-Za-z]+)")
 UNICODE_MATH_RE = re.compile(r"[∈∉⊆⊂⊇⊃∩∪⊗∏∑→↦≃≅≠≤≥∞]")
 # Keep this narrower than generic punctuation so hyphenated prose and file paths
@@ -93,6 +94,11 @@ def suspicious_math_syntax(path: Path) -> list[str]:
         if in_fence:
             continue
 
+        if OBSOLETE_BOLD_SWITCH_RE.search(line):
+            errors.append(
+                f"{path}:{line_no}: obsolete TeX font switch '\\bf' may fail PDF generation; "
+                f"use '\\mathbf{{...}}' in math or '\\textbf{{...}}' in text: {stripped}"
+            )
         if not stripped.startswith("#"):
             if MALFORMED_INLINE_MATH_RE.search(line):
                 errors.append(
@@ -141,7 +147,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Check for raw dollar-math in headings, malformed Verso inline math delimiters, "
-            "and suspicious inline code spans that likely should be Verso math."
+            "obsolete TeX bold switches, and suspicious inline code spans that likely should "
+            "be Verso math."
         )
     )
     parser.add_argument(
