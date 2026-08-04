@@ -242,6 +242,10 @@ def main() -> int:
     print(f"package: {config.package_name}")
     print(f"chapter_root: {config.chapter_root}")
     print("status: ok")
+    print(
+        "validation boundary: configuration only; run scripts/ci-pages.sh "
+        "or remote Pages CI to resolve Blueprint Lean links"
+    )
     return 0
 
 

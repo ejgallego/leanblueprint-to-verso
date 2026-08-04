@@ -142,6 +142,8 @@ class CheckHarnessTests(unittest.TestCase):
             result = run_check(root)
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("status: ok", result.stdout)
+            self.assertIn("validation boundary: configuration only", result.stdout)
+            self.assertIn("remote Pages CI", result.stdout)
 
     def test_check_harness_accepts_weak_policy_for_v429(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
