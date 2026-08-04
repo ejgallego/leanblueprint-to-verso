@@ -101,6 +101,8 @@ version-appropriate warn-line-length setting.
   - `check_lt_source_pairs.py`
   - `check_lt_similarity.py`
   - `check_blueprint_node_kinds.py`
+  - `check_source_label_grounding.py`
+  - `check_verso_math_delimiters.py`
   - `lt_audit.py`
   - `lt_audit.py --native-warnings` when the repo wants warnings to fail the focused build
 

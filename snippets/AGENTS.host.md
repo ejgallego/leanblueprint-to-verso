@@ -70,6 +70,7 @@
   - `python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . <chapter.lean>`
 - Use `python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root . <chapter.lean>`
 - Use `python3 tools/verso-harness/scripts/check_source_label_grounding.py --project-root . <chapter.lean>`
+- Use `python3 tools/verso-harness/scripts/check_verso_math_delimiters.py --project-root . <chapter.lean>`
 - Use `python3 tools/verso-harness/scripts/lt_audit.py --project-root . <chapter.lean>`
   when you want the source-pair check, similarity report, focused build, and
   optional extra checks such as `--node-kinds`, `--math-sanity`, or pages
