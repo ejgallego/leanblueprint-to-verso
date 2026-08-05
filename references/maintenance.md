@@ -138,7 +138,10 @@ wrapper_toolchain_override = "leanprover/lean4:v4.33.0-rc2"
 The root `lean-toolchain` must equal that exact value. The vendored
 formalization retains its own toolchain, and the configuration audit, cache
 guard, status report, and reusable Pages workflow preserve the wrapper
-selection. Do not use this setting as a broad version-range escape hatch.
+selection. When warming mathlib's cache for such an override, the cache guard
+temporarily invokes the cache tool under the formalization toolchain and
+restores the exact wrapper toolchain before the Blueprint build. Do not use
+this setting as a broad version-range escape hatch.
 
 Do not bundle unrelated blueprint prose edits into a dependency-upgrade change,
 do not bump the consumer toolchain independently of upstream without such an

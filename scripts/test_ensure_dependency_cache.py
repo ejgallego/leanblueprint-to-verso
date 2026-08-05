@@ -171,6 +171,89 @@ class EnsureDependencyCacheTests(unittest.TestCase):
                 (root / ".lake" / "packages" / "VersoBlueprint" / "lean-toolchain").exists()
             )
 
+    def test_warm_cache_temporarily_uses_formalization_toolchain_for_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_config(
+                root,
+                wrapper_toolchain_override="leanprover/lean4:v4.33.0-rc2",
+            )
+            root_toolchain = root / "lean-toolchain"
+            root_toolchain.write_text(
+                "leanprover/lean4:v4.33.0-rc2\n",
+                encoding="utf-8",
+            )
+            (root / "Demo").mkdir()
+            (root / "Demo" / "lean-toolchain").write_text(
+                "leanprover/lean4:v4.33.0-rc1\n",
+                encoding="utf-8",
+            )
+            observed_toolchains: list[str] = []
+
+            def run_cache(
+                *args: object,
+                **kwargs: object,
+            ) -> subprocess.CompletedProcess[str]:
+                observed_toolchains.append(
+                    root_toolchain.read_text(encoding="utf-8").strip()
+                )
+                return subprocess.CompletedProcess(
+                    list(ensure_dependency_cache.CACHE_GET_COMMAND),
+                    0,
+                )
+
+            with mock.patch.object(
+                ensure_dependency_cache.subprocess,
+                "run",
+                side_effect=run_cache,
+            ):
+                status = ensure_dependency_cache.warm_cache(root)
+
+            self.assertEqual(status, 0)
+            self.assertEqual(
+                observed_toolchains,
+                ["leanprover/lean4:v4.33.0-rc1"],
+            )
+            self.assertEqual(
+                root_toolchain.read_text(encoding="utf-8"),
+                "leanprover/lean4:v4.33.0-rc2\n",
+            )
+
+    def test_warm_cache_restores_wrapper_toolchain_after_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_config(
+                root,
+                wrapper_toolchain_override="leanprover/lean4:v4.33.0-rc2",
+            )
+            root_toolchain = root / "lean-toolchain"
+            root_toolchain.write_text(
+                "leanprover/lean4:v4.33.0-rc2\n",
+                encoding="utf-8",
+            )
+            (root / "Demo").mkdir()
+            (root / "Demo" / "lean-toolchain").write_text(
+                "leanprover/lean4:v4.33.0-rc1\n",
+                encoding="utf-8",
+            )
+            completed = subprocess.CompletedProcess(
+                list(ensure_dependency_cache.CACHE_GET_COMMAND),
+                1,
+            )
+
+            with mock.patch.object(
+                ensure_dependency_cache.subprocess,
+                "run",
+                return_value=completed,
+            ):
+                status = ensure_dependency_cache.warm_cache(root)
+
+            self.assertEqual(status, 1)
+            self.assertEqual(
+                root_toolchain.read_text(encoding="utf-8"),
+                "leanprover/lean4:v4.33.0-rc2\n",
+            )
+
     def test_materializes_cached_lean_artifacts_from_dependency_trace(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "project"
