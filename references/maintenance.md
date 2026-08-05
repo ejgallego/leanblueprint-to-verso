@@ -108,8 +108,7 @@ version-appropriate warn-line-length setting.
 
 ## Updating The Toolchain Or Dependencies
 
-The upstream formalization normally determines the Lean toolchain. In a
-consumer repo:
+The upstream formalization determines the Lean toolchain. In a consumer repo:
 
 - first update the upstream formalization to the desired revision
 - then copy or confirm the same value in the root `lean-toolchain`, including
@@ -126,26 +125,8 @@ consumer repo:
   `scripts/ci-pages.sh` site build or equivalent remote Pages CI to catch
   declarations renamed, replaced, or removed by the formalization update
 
-When a formalization release candidate is explicitly known to be compatible
-with a different wrapper release candidate, the consumer may declare the exact
-exception in `verso-harness.toml`:
-
-```toml
-[harness]
-wrapper_toolchain_override = "leanprover/lean4:v4.33.0-rc2"
-```
-
-The root `lean-toolchain` must equal that exact value. The vendored
-formalization retains its own toolchain, and the configuration audit, cache
-guard, status report, and reusable Pages workflow preserve the wrapper
-selection. When warming mathlib's cache for such an override, the cache guard
-temporarily invokes the cache tool under the formalization toolchain and
-restores the exact wrapper toolchain before the Blueprint build. Do not use
-this setting as a broad version-range escape hatch.
-
 Do not bundle unrelated blueprint prose edits into a dependency-upgrade change,
-do not bump the consumer toolchain independently of upstream without such an
-explicit compatibility exception, and do not run raw
+do not bump the consumer toolchain independently of upstream, and do not run raw
 Lake build/update commands when this local toolchain selection has not been
 checked.
 

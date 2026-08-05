@@ -208,7 +208,7 @@ def write_host_project(
 
 
 class StatusHarnessTests(unittest.TestCase):
-    def test_status_harness_accepts_explicit_wrapper_toolchain_override(self) -> None:
+    def test_status_harness_rejects_wrapper_toolchain_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _, _, helper_checkout, _, _ = create_remote_with_checkout(
@@ -254,17 +254,8 @@ class StatusHarnessTests(unittest.TestCase):
                 ],
                 cwd=ROOT,
             )
-            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
-            self.assertIn(
-                "wrapper_override: leanprover/lean4:v4.33.0-rc2",
-                result.stdout,
-            )
-            self.assertIn(
-                "accepted explicit wrapper/formalization toolchain override",
-                result.stdout,
-            )
-            self.assertIn("expected_verso_ref: v4.33.0", result.stdout)
-            self.assertIn("summary: ok", result.stdout)
+            self.assertEqual(result.returncode, 2, msg=result.stdout + result.stderr)
+            self.assertIn("wrapper_toolchain_override is no longer supported", result.stderr)
 
     def test_status_harness_reports_updates_for_helper_upstream_and_verso(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
