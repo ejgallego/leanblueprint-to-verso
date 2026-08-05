@@ -34,9 +34,7 @@ and maintenance rules, use the harness docs:
 
 ## Notes
 
-- Root `lean-toolchain` follows the upstream formalization toolchain unless
-  `harness.wrapper_toolchain_override` records a reviewed compatibility
-  exception.
+- Root `lean-toolchain` follows the upstream formalization toolchain.
 - `lakefile.lean` pins the matching `VersoBlueprint` branch for that toolchain.
 - `harness.docstring_warnings` in `verso-harness.toml` controls whether
   standard helper-owned workflows show missing-docstring warnings.

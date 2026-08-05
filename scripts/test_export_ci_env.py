@@ -45,7 +45,7 @@ default_chapters = []
             self.assertIn("blueprint_main_path=DemoMain.lean", result.stdout)
             self.assertIn("use_formalization_toolchain=true", result.stdout)
 
-    def test_exports_wrapper_toolchain_override_selection(self) -> None:
+    def test_rejects_wrapper_toolchain_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "verso-harness.toml").write_text(
@@ -75,8 +75,8 @@ wrapper_toolchain_override = \"leanprover/lean4:v4.33.0-rc2\"
                 text=True,
                 check=False,
             )
-            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
-            self.assertIn("use_formalization_toolchain=false", result.stdout)
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("wrapper_toolchain_override is no longer supported", result.stderr)
 
 
 if __name__ == "__main__":

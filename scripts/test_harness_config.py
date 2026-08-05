@@ -60,7 +60,6 @@ class HarnessConfigTests(unittest.TestCase):
             self.assertFalse(config.native_warnings)
             self.assertFalse(config.docstring_warnings)
             self.assertTrue(config.strict_external_code)
-            self.assertIsNone(config.wrapper_toolchain_override)
 
     def test_custom_node_kind_pairs_extend_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -93,7 +92,7 @@ class HarnessConfigTests(unittest.TestCase):
             self.assertTrue(config.docstring_warnings)
             self.assertFalse(config.strict_external_code)
 
-    def test_wrapper_toolchain_override_can_be_configured(self) -> None:
+    def test_wrapper_toolchain_override_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_config(root)
@@ -104,11 +103,9 @@ class HarnessConfigTests(unittest.TestCase):
                 + 'wrapper_toolchain_override = "leanprover/lean4:v4.33.0-rc2"\n',
                 encoding='utf-8',
             )
-            config = load_config(root)
-            self.assertEqual(
-                config.wrapper_toolchain_override,
-                'leanprover/lean4:v4.33.0-rc2',
-            )
+            with self.assertRaises(SystemExit) as exc:
+                load_config(root)
+            self.assertIn('wrapper_toolchain_override is no longer supported', str(exc.exception))
 
     def test_explicit_verso_blueprint_ref_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

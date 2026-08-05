@@ -29,10 +29,7 @@ def main() -> int:
     print(f"blueprint_main_path={config.blueprint_main}.lean")
     print(f"package_name={config.package_name}")
     print(f"chapter_root={config.chapter_root}")
-    print(
-        "use_formalization_toolchain="
-        f"{'false' if config.wrapper_toolchain_override is not None else 'true'}"
-    )
+    print("use_formalization_toolchain=true")
     return 0
 
 

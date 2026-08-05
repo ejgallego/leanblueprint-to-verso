@@ -106,20 +106,11 @@ def read_toolchain(path: Path) -> str | None:
 
 
 def read_formalization_toolchain(project_root: Path) -> str | None:
-    try:
-        config = load_config(project_root)
-    except SystemExit:
-        return None
+    config = load_config(project_root)
     return read_toolchain(project_root / config.formalization_path / "lean-toolchain")
 
 
 def selected_project_toolchain(project_root: Path) -> str | None:
-    try:
-        config = load_config(project_root)
-    except SystemExit:
-        config = None
-    if config is not None and config.wrapper_toolchain_override is not None:
-        return config.wrapper_toolchain_override
     return read_formalization_toolchain(project_root) or read_toolchain(
         project_root / "lean-toolchain"
     )
@@ -144,25 +135,6 @@ def sync_project_toolchain_selection(project_root: Path) -> list[Path]:
         changed.append(root_toolchain_path)
 
     return changed
-
-
-def formalization_cache_toolchain(project_root: Path) -> str | None:
-    """Return the formalization toolchain needed to warm an override cache."""
-    try:
-        config = load_config(project_root)
-    except SystemExit:
-        return None
-    if config.wrapper_toolchain_override is None:
-        return None
-    formalization_toolchain = read_toolchain(
-        project_root / config.formalization_path / "lean-toolchain"
-    )
-    if (
-        formalization_toolchain is None
-        or formalization_toolchain == config.wrapper_toolchain_override
-    ):
-        return None
-    return formalization_toolchain
 
 
 def relative_to_project(path: Path, project_root: Path) -> str:
@@ -299,32 +271,7 @@ def materialize_cached_lean_artifacts(
 
 def warm_cache(project_root: Path) -> int:
     print(f"[dependency-cache] {' '.join(CACHE_GET_COMMAND)}", flush=True)
-    root_toolchain_path = project_root / "lean-toolchain"
-    cache_toolchain = formalization_cache_toolchain(project_root)
-    original_toolchain = (
-        root_toolchain_path.read_bytes() if root_toolchain_path.exists() else None
-    )
-    if cache_toolchain is not None:
-        print(
-            "[dependency-cache] temporarily selecting formalization toolchain "
-            f"{cache_toolchain} for cache retrieval",
-            flush=True,
-        )
-        sync_toolchain_file(root_toolchain_path, cache_toolchain)
-    try:
-        return subprocess.run(
-            list(CACHE_GET_COMMAND), cwd=project_root, check=False
-        ).returncode
-    finally:
-        if cache_toolchain is not None:
-            if original_toolchain is None:
-                root_toolchain_path.unlink(missing_ok=True)
-            else:
-                root_toolchain_path.write_bytes(original_toolchain)
-            print(
-                "[dependency-cache] restored wrapper Lean toolchain after cache retrieval",
-                flush=True,
-            )
+    return subprocess.run(list(CACHE_GET_COMMAND), cwd=project_root, check=False).returncode
 
 
 def main() -> int:

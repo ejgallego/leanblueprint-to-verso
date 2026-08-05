@@ -129,7 +129,7 @@ class EnsureDependencyCacheTests(unittest.TestCase):
                 "leanprover/lean4:v4.30.0",
             )
 
-    def test_sync_project_toolchain_selection_uses_explicit_wrapper_override(self) -> None:
+    def test_sync_project_toolchain_selection_rejects_wrapper_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_harness_config(
@@ -146,9 +146,8 @@ class EnsureDependencyCacheTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            changed = ensure_dependency_cache.sync_project_toolchain_selection(root)
-
-            self.assertEqual(changed, [])
+            with self.assertRaisesRegex(SystemExit, "wrapper_toolchain_override is no longer supported"):
+                ensure_dependency_cache.sync_project_toolchain_selection(root)
             self.assertEqual(
                 (root / "lean-toolchain").read_text(encoding="utf-8").strip(),
                 "leanprover/lean4:v4.33.0-rc2",
@@ -171,20 +170,11 @@ class EnsureDependencyCacheTests(unittest.TestCase):
                 (root / ".lake" / "packages" / "VersoBlueprint" / "lean-toolchain").exists()
             )
 
-    def test_warm_cache_temporarily_uses_formalization_toolchain_for_override(self) -> None:
+    def test_warm_cache_does_not_swap_the_selected_root_toolchain(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            write_harness_config(
-                root,
-                wrapper_toolchain_override="leanprover/lean4:v4.33.0-rc2",
-            )
             root_toolchain = root / "lean-toolchain"
             root_toolchain.write_text(
-                "leanprover/lean4:v4.33.0-rc2\n",
-                encoding="utf-8",
-            )
-            (root / "Demo").mkdir()
-            (root / "Demo" / "lean-toolchain").write_text(
                 "leanprover/lean4:v4.33.0-rc1\n",
                 encoding="utf-8",
             )
@@ -216,23 +206,14 @@ class EnsureDependencyCacheTests(unittest.TestCase):
             )
             self.assertEqual(
                 root_toolchain.read_text(encoding="utf-8"),
-                "leanprover/lean4:v4.33.0-rc2\n",
+                "leanprover/lean4:v4.33.0-rc1\n",
             )
 
-    def test_warm_cache_restores_wrapper_toolchain_after_failure(self) -> None:
+    def test_warm_cache_failure_does_not_mutate_root_toolchain(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            write_harness_config(
-                root,
-                wrapper_toolchain_override="leanprover/lean4:v4.33.0-rc2",
-            )
             root_toolchain = root / "lean-toolchain"
             root_toolchain.write_text(
-                "leanprover/lean4:v4.33.0-rc2\n",
-                encoding="utf-8",
-            )
-            (root / "Demo").mkdir()
-            (root / "Demo" / "lean-toolchain").write_text(
                 "leanprover/lean4:v4.33.0-rc1\n",
                 encoding="utf-8",
             )
@@ -251,7 +232,7 @@ class EnsureDependencyCacheTests(unittest.TestCase):
             self.assertEqual(status, 1)
             self.assertEqual(
                 root_toolchain.read_text(encoding="utf-8"),
-                "leanprover/lean4:v4.33.0-rc2\n",
+                "leanprover/lean4:v4.33.0-rc1\n",
             )
 
     def test_materializes_cached_lean_artifacts_from_dependency_trace(self) -> None:
