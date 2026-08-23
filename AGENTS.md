@@ -24,7 +24,8 @@ a host Lean project that is porting a `leanblueprint` or TeX blueprint source to
 - For maintenance of helper-owned CI files, use `scripts/update_ci.py`.
 - For audits, use `scripts/check_harness.py`.
 - For direct-port LT audits, use `scripts/check_lt_source_pairs.py`,
-  `scripts/check_lt_similarity.py`, `scripts/check_blueprint_node_kinds.py`,
+  `scripts/check_lt_source_freshness.py`, `scripts/check_lt_similarity.py`,
+  `scripts/check_blueprint_node_kinds.py`,
   `scripts/check_source_label_grounding.py`,
   `scripts/check_verso_math_delimiters.py`, `scripts/status_lt.py`, and
   `scripts/lt_audit.py`.

@@ -99,6 +99,7 @@ version-appropriate warn-line-length setting.
 - Validate edited modules incrementally before building the whole site.
 - For direct-port chapters, use the LT audit stack after each coherent batch:
   - `check_lt_source_pairs.py`
+  - `check_lt_source_freshness.py --require-current`
   - `check_lt_similarity.py`
   - `check_blueprint_node_kinds.py`
   - `check_source_label_grounding.py`

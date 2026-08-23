@@ -55,6 +55,38 @@ Faithfulness`) are accepted aliases for the same workflow.
 - If a block has low LT similarity, first ask whether the witness is oversized
   or misaligned before rewriting faithful prose.
 
+Adjacent witnesses are only a local audit trail. They must also remain grounded
+in the maintained upstream TeX:
+
+- set `tex_source_glob` to the current source tree, never to a copied snapshot
+- when a glob contains legacy or inactive files, declare exact ownership in
+  `[lt.source_files]`, mapping every `lt.default_chapters` entry to one or more
+  source files
+- run `check_lt_source_freshness.py --require-current` after upstream updates;
+  it checks witness text and metadata against those sources and reports newly
+  added labeled source nodes that are absent locally
+- record a necessary non-literal repair in root `lt-source-deviations.toml`;
+  witness exceptions use a SHA-256 fingerprint and therefore expire as soon as
+  the reviewed witness changes
+
+Example source ownership:
+
+```toml
+[lt.source_files]
+"MyBlueprint/Chapters/Main.lean" = ["Formalization/blueprint/src/main.tex"]
+```
+
+Example reviewed deviation:
+
+```toml
+version = 1
+
+[[witness]]
+chapter = "MyBlueprint/Chapters/Main.lean"
+fingerprint = "<64 lowercase hex characters from the freshness report>"
+reason = "Upstream metadata names a removed node; omit the dangling local edge."
+```
+
 ## Triage Order For Low-Similarity Blocks
 
 1. shrink or split the witness to the exact source span
@@ -69,6 +101,7 @@ After a coherent direct-port batch, run:
 
 ```bash
 python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . path/to/Chapter.lean
+python3 tools/verso-harness/scripts/check_lt_source_freshness.py --project-root . --require-current path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_verso_math_delimiters.py --project-root . path/to/Chapter.lean

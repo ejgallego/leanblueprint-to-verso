@@ -100,7 +100,7 @@ Start a faithful LT pass on the first unchecked chapter in lt.default_chapters.
 Do not rewrite the prose for style.
 Add adjacent tex witnesses for every translated informal block.
 Do not use `:::theorem` as a generic wrapper. Preserve TeX environment kind and keep prose as prose unless the source really gives a graph-visible theorem/definition/proof-style object.
-After the edit, run check_lt_source_pairs.py, check_lt_similarity.py, check_blueprint_node_kinds.py, check_source_label_grounding.py, and check_verso_math_delimiters.py on the touched chapter.
+After the edit, run check_lt_source_pairs.py, check_lt_source_freshness.py --require-current, check_lt_similarity.py, check_blueprint_node_kinds.py, check_source_label_grounding.py, and check_verso_math_delimiters.py on the touched chapter.
 Record any deliberate non-literal deviations.
 ```
 
@@ -121,6 +121,7 @@ For each touched direct-port chapter, run:
 
 ```bash
 python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . path/to/Chapter.lean
+python3 tools/verso-harness/scripts/check_lt_source_freshness.py --project-root . --require-current path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_source_label_grounding.py --project-root . path/to/Chapter.lean

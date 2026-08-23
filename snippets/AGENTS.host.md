@@ -23,6 +23,9 @@
 - Record the real TeX chapter source locator for this repo. The common legacy
   layout is `./blueprint/src/chapter/*.tex`, but some projects use a single
   file such as `./blueprint/src/chapter/main.tex`; verify it before porting.
+- Point `tex_source_glob` at the maintained upstream tree, not a copied
+  snapshot. If it also matches inactive files, map every direct-port chapter
+  to its current files in `[lt.source_files]`.
 - Treat chapters in `lt.default_chapters` as the direct-port LT scope.
 - The default deliverable for direct-port chapters is an LT pass. Do not trust
   older LT labels by themselves; every translated informal block now needs an
@@ -67,6 +70,7 @@
   `harness.strict_external_code`.
 - After editing direct-port chapters, run:
   - `python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . <chapter.lean>`
+  - `python3 tools/verso-harness/scripts/check_lt_source_freshness.py --project-root . --require-current <chapter.lean>`
   - `python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . <chapter.lean>`
 - Use `python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root . <chapter.lean>`
 - Use `python3 tools/verso-harness/scripts/check_source_label_grounding.py --project-root . <chapter.lean>`

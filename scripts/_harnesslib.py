@@ -42,6 +42,7 @@ class HarnessConfig:
     tex_source_glob: str
     lt_default_chapters: tuple[str, ...]
     lt_node_kind_pairs: tuple[tuple[str, str], ...]
+    lt_source_files: tuple[tuple[str, tuple[str, ...]], ...]
     native_warnings: bool
     docstring_warnings: bool
     strict_external_code: bool
@@ -244,6 +245,36 @@ def load_lt_node_kind_pairs(lt_section: dict[str, object]) -> tuple[tuple[str, s
     return tuple(ordered_pairs)
 
 
+def load_lt_source_files(
+    lt_section: dict[str, object],
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    value = lt_section.get("source_files")
+    if value is None:
+        return ()
+    if not isinstance(value, dict) or not value:
+        raise SystemExit(f"{CONFIG_FILENAME}: missing or invalid lt.source_files")
+
+    mappings: list[tuple[str, tuple[str, ...]]] = []
+    for raw_chapter, raw_sources in value.items():
+        if not isinstance(raw_chapter, str) or not raw_chapter.strip():
+            raise SystemExit(f"{CONFIG_FILENAME}: missing or invalid lt.source_files")
+        if (
+            not isinstance(raw_sources, list)
+            or not raw_sources
+            or any(not isinstance(source, str) or not source.strip() for source in raw_sources)
+        ):
+            raise SystemExit(
+                f"{CONFIG_FILENAME}: lt.source_files.{raw_chapter} must be a non-empty string list"
+            )
+        chapter = require_relative_path(raw_chapter.strip(), "lt.source_files chapter")
+        sources = tuple(
+            require_relative_path(source.strip(), f"lt.source_files.{raw_chapter}")
+            for source in raw_sources
+        )
+        mappings.append((chapter, sources))
+    return tuple(mappings)
+
+
 def load_config(project_root: Path) -> HarnessConfig:
     path = config_path(project_root)
     if not path.exists():
@@ -285,8 +316,23 @@ def load_config(project_root: Path) -> HarnessConfig:
         allow_empty=True,
     )
     lt_node_kind_pairs = load_lt_node_kind_pairs(lt_section)
+    lt_source_files = load_lt_source_files(lt_section)
     for chapter in lt_default_chapters:
         require_relative_path(chapter, "lt.default_chapters")
+
+    if lt_source_files:
+        source_chapters = {chapter for chapter, _ in lt_source_files}
+        default_chapters = set(lt_default_chapters)
+        missing = sorted(default_chapters - source_chapters)
+        extra = sorted(source_chapters - default_chapters)
+        if missing:
+            raise SystemExit(
+                f"{CONFIG_FILENAME}: lt.source_files is missing default chapters: {missing}"
+            )
+        if extra:
+            raise SystemExit(
+                f"{CONFIG_FILENAME}: lt.source_files contains non-default chapters: {extra}"
+            )
 
     harness_section = data.get("harness", {})
     if not isinstance(harness_section, dict):
@@ -341,6 +387,7 @@ def load_config(project_root: Path) -> HarnessConfig:
         tex_source_glob=tex_source_glob,
         lt_default_chapters=lt_default_chapters,
         lt_node_kind_pairs=lt_node_kind_pairs,
+        lt_source_files=lt_source_files,
         native_warnings=native_warnings,
         docstring_warnings=docstring_warnings,
         strict_external_code=strict_external_code,

@@ -26,6 +26,43 @@ def write_file(path: Path, text: str) -> None:
 
 
 class StatusCompletionTests(unittest.TestCase):
+    def test_empty_direct_port_scope_does_not_require_source_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_file(
+                root / "verso-harness.toml",
+                "\n".join(
+                    [
+                        'package_name = "DemoBlueprint"',
+                        'blueprint_main = "BlueprintMain"',
+                        'formalization_path = "Demo"',
+                        'chapter_root = "DemoBlueprint/Chapters"',
+                        'tex_source_glob = "missing/*.tex"',
+                        "",
+                        "[lt]",
+                        "default_chapters = []",
+                    ]
+                ),
+            )
+            write_file(
+                root / "DemoBlueprint/Chapters/Support.lean",
+                '#doc (Manual) "Support" =>\n',
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("source_freshness_errors: 0", result.stdout)
+
     def make_project(self, root: Path) -> None:
         write_file(
             root / "verso-harness.toml",
@@ -48,6 +85,12 @@ class StatusCompletionTests(unittest.TestCase):
                 ]
             )
             + "\n",
+        )
+        write_file(
+            root / "blueprint" / "src" / "chapter" / "main.tex",
+            "Alpha beta.\n"
+            "\\begin{definition}\\lean{Expected.Name}\n"
+            "Alpha beta.\n\\end{definition}\n",
         )
 
         write_file(
@@ -177,6 +220,7 @@ class StatusCompletionTests(unittest.TestCase):
                 root / "DemoBlueprint" / "Chapters" / "Clean.lean",
                 '#doc (Manual) "Clean" =>\n\nAlpha beta.\n```tex\nAlpha beta.\n```\n',
             )
+            write_file(root / "blueprint/src/chapter/main.tex", "Alpha beta.\n")
             (root / "Demo").mkdir(parents=True, exist_ok=True)
 
             argv = [
@@ -206,6 +250,49 @@ class StatusCompletionTests(unittest.TestCase):
             self.assertIn("  complete: yes", output)
             self.assertIn("[done] DemoBlueprint/Chapters/Clean.lean", output)
 
+    def test_status_completion_blocks_on_stale_upstream_witnesses(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_file(
+                root / "verso-harness.toml",
+                "\n".join(
+                    [
+                        'package_name = "DemoBlueprint"',
+                        'blueprint_main = "BlueprintMain"',
+                        'formalization_path = "Demo"',
+                        'chapter_root = "DemoBlueprint/Chapters"',
+                        'tex_source_glob = "blueprint/src/chapter/main.tex"',
+                        "",
+                        "[lt]",
+                        'default_chapters = ["DemoBlueprint/Chapters/Main.lean"]',
+                        "",
+                        "[lt.source_files]",
+                        '"DemoBlueprint/Chapters/Main.lean" = ["blueprint/src/chapter/main.tex"]',
+                    ]
+                ),
+            )
+            write_file(
+                root / "DemoBlueprint/Chapters/Main.lean",
+                '#doc (Manual) "Main" =>\n\nOld wording.\n```tex\nOld wording.\n```\n',
+            )
+            write_file(root / "blueprint/src/chapter/main.tex", "New wording.\n")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("  source-stale: 1", result.stdout)
+            self.assertIn("[source-stale] DemoBlueprint/Chapters/Main.lean", result.stdout)
+            self.assertIn("stale source witnesses=1", result.stdout)
+
     def test_status_completion_reports_build_failures_as_distinct_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -230,6 +317,7 @@ class StatusCompletionTests(unittest.TestCase):
                 root / "DemoBlueprint" / "Chapters" / "Clean.lean",
                 '#doc (Manual) "Clean" =>\n\nAlpha beta.\n```tex\nAlpha beta.\n```\n',
             )
+            write_file(root / "blueprint/src/chapter/main.tex", "Alpha beta.\n")
             (root / "Demo").mkdir(parents=True, exist_ok=True)
 
             argv = [
@@ -282,6 +370,7 @@ class StatusCompletionTests(unittest.TestCase):
                 root / "Chapters" / "Clean.lean",
                 '#doc (Manual) "Clean" =>\n\nAlpha beta.\n```tex\nAlpha beta.\n```\n',
             )
+            write_file(root / "blueprint/src/chapter/main.tex", "Alpha beta.\n")
             write_file(root / "Support.lean", "def helper : Nat := 0\n")
             (root / "Demo").mkdir(parents=True, exist_ok=True)
 

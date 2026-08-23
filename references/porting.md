@@ -120,6 +120,7 @@ For direct-port chapters, the normal LT audit stack is:
 
 ```bash
 python3 tools/verso-harness/scripts/check_lt_source_pairs.py --project-root . path/to/Chapter.lean
+python3 tools/verso-harness/scripts/check_lt_source_freshness.py --project-root . --require-current path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . path/to/Chapter.lean

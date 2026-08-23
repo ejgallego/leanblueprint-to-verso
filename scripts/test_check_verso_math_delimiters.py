@@ -224,6 +224,52 @@ def test_inline_math_next_to_code_span_is_not_cross_matched() -> None:
         assert suspicious_math_syntax(path) == []
 
 
+def test_multiline_inline_math_with_trailing_dollar_is_flagged() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = write_tmp(
+            Path(tmpdir),
+            r"""
+            #doc (Manual) "X" =>
+
+            This contains multiline math $`a +
+            b`$ in prose.
+            """,
+        )
+        errs = suspicious_math_syntax(path)
+        assert len(errs) == 1
+        assert "TeX-style closing '$'" in errs[0]
+
+
+def test_multiline_display_math_with_trailing_dollars_is_flagged() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = write_tmp(
+            Path(tmpdir),
+            r"""
+            #doc (Manual) "X" =>
+
+            $$`a =
+            b`$$
+            """,
+        )
+        errs = suspicious_math_syntax(path)
+        assert len(errs) == 1
+        assert "TeX-style closing '$'" in errs[0]
+
+
+def test_valid_multiline_display_math_is_ignored() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = write_tmp(
+            Path(tmpdir),
+            r"""
+            #doc (Manual) "X" =>
+
+            $$`a =
+            b`
+            """,
+        )
+        assert suspicious_math_syntax(path) == []
+
+
 if __name__ == "__main__":
     test_heading_raw_dollar()
     test_malformed_inline_math()
@@ -240,4 +286,7 @@ if __name__ == "__main__":
     test_shell_command_code_span_is_ignored()
     test_file_path_code_span_is_ignored()
     test_inline_math_next_to_code_span_is_not_cross_matched()
+    test_multiline_inline_math_with_trailing_dollar_is_flagged()
+    test_multiline_display_math_with_trailing_dollars_is_flagged()
+    test_valid_multiline_display_math_is_ignored()
     print("check_verso_math_delimiters tests passed")
