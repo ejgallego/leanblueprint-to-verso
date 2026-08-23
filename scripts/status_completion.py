@@ -19,6 +19,11 @@ from _harnesslib import (  # noqa: E402
 )
 from check_blueprint_node_kinds import audit_file as audit_node_kinds  # noqa: E402
 from check_lt_similarity import paired_blocks, score_pair  # noqa: E402
+from check_lt_source_freshness import (  # noqa: E402
+    ChapterFreshness,
+    ProjectFreshness,
+    audit_project as audit_source_freshness,
+)
 from check_verso_math_delimiters import suspicious_math_syntax  # noqa: E402
 from lt_audit import (  # noqa: E402
     chapter_build_command,
@@ -32,11 +37,12 @@ from lt_audit import (  # noqa: E402
 STATE_SORT_KEY = {
     "untracked": 0,
     "unpaired": 1,
-    "paired": 2,
-    "lt-audited": 3,
-    "metadata-clean": 4,
-    "build-failing": 5,
-    "done": 6,
+    "source-stale": 2,
+    "paired": 3,
+    "lt-audited": 4,
+    "metadata-clean": 5,
+    "build-failing": 6,
+    "done": 7,
 }
 STATE_LABELS = (
     "done",
@@ -44,6 +50,7 @@ STATE_LABELS = (
     "metadata-clean",
     "lt-audited",
     "paired",
+    "source-stale",
     "unpaired",
     "untracked",
 )
@@ -63,6 +70,9 @@ class CompletionStatus:
     build_checked: bool
     build_ok: bool | None
     reasons: tuple[str, ...]
+    source_stale: int = 0
+    source_missing: int = 0
+    source_deviations: int = 0
 
 
 def chapter_root_paths(project_root: Path, chapter_root: str) -> list[Path]:
@@ -157,6 +167,7 @@ def classify_direct_port(
     build: bool,
     native_warnings: bool,
     native_warnings_scope: str,
+    source_freshness: ChapterFreshness | None = None,
 ) -> CompletionStatus:
     path = project_root / relative_path
     if not path.exists():
@@ -200,6 +211,33 @@ def classify_direct_port(
     metadata_dirty = metadata_dirty_count(scores)
     label_issues = label_issue_count(scores)
 
+    source_stale = source_freshness.stale_witness_count if source_freshness else 0
+    source_missing = source_freshness.missing_source_label_count if source_freshness else 0
+    source_deviations = source_freshness.deviation_count if source_freshness else 0
+    if source_stale or source_missing:
+        reasons: list[str] = []
+        if source_stale:
+            reasons.append(f"stale source witnesses={source_stale}")
+        if source_missing:
+            reasons.append(f"source labels missing locally={source_missing}")
+        return CompletionStatus(
+            relative_path=relative_path,
+            scope="direct-port",
+            state="source-stale",
+            pair_count=len(pairs),
+            low_similarity=low_similarity,
+            metadata_dirty=metadata_dirty,
+            label_issues=label_issues,
+            node_kind_issues=node_kind_issues,
+            math_issues=math_issues,
+            build_checked=False,
+            build_ok=None,
+            reasons=tuple(reasons),
+            source_stale=source_stale,
+            source_missing=source_missing,
+            source_deviations=source_deviations,
+        )
+
     paired_reasons: list[str] = []
     if low_similarity:
         paired_reasons.append(f"low-similarity blocks={low_similarity}")
@@ -221,6 +259,7 @@ def classify_direct_port(
             build_checked=False,
             build_ok=None,
             reasons=tuple(paired_reasons),
+            source_deviations=source_deviations,
         )
 
     if metadata_dirty:
@@ -240,6 +279,7 @@ def classify_direct_port(
             build_checked=False,
             build_ok=None,
             reasons=tuple(reasons),
+            source_deviations=source_deviations,
         )
 
     if not build:
@@ -256,6 +296,7 @@ def classify_direct_port(
             build_checked=False,
             build_ok=None,
             reasons=("build not checked; rerun with --build for final completion",),
+            source_deviations=source_deviations,
         )
 
     build_ok, build_reasons = build_status(
@@ -279,6 +320,7 @@ def classify_direct_port(
         build_checked=True,
         build_ok=build_ok,
         reasons=build_reasons,
+        source_deviations=source_deviations,
     )
 
 
@@ -292,6 +334,7 @@ def classify_chapter(
     native_warnings: bool,
     native_warnings_scope: str,
     direct_port_paths: set[Path],
+    source_freshness: ChapterFreshness | None = None,
 ) -> CompletionStatus:
     if relative_path not in direct_port_paths:
         return CompletionStatus(
@@ -317,6 +360,7 @@ def classify_chapter(
         build=build,
         native_warnings=native_warnings,
         native_warnings_scope=native_warnings_scope,
+        source_freshness=source_freshness,
     )
 
 
@@ -326,7 +370,9 @@ def print_status(status: CompletionStatus) -> None:
     details = (
         f"pairs={status.pair_count} low={status.low_similarity} "
         f"metadata={status.metadata_dirty} labels={status.label_issues} "
-        f"node_kinds={status.node_kind_issues} math={status.math_issues}"
+        f"node_kinds={status.node_kind_issues} math={status.math_issues} "
+        f"source_stale={status.source_stale} source_missing={status.source_missing} "
+        f"source_deviations={status.source_deviations}"
     )
     print(f"  metrics: {details}")
     if status.build_checked:
@@ -341,6 +387,7 @@ def report_complete(statuses: list[CompletionStatus]) -> bool:
         if status.state in {
             "untracked",
             "unpaired",
+            "source-stale",
             "paired",
             "lt-audited",
             "metadata-clean",
@@ -358,8 +405,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Repo-level completion dashboard for chapter scope and LT progress. "
-            "This classifies configured direct-port chapters as unpaired, paired, "
-            "lt-audited, metadata-clean, build-failing, or done, and also reports "
+            "This classifies configured direct-port chapters as unpaired, source-stale, "
+            "paired, lt-audited, metadata-clean, build-failing, or done, and also reports "
             "untracked chapter files under chapter_root."
         )
     )
@@ -431,6 +478,20 @@ def main() -> int:
         return 2
 
     direct_port_paths = {Path(path) for path in config.lt_default_chapters}
+    selected_direct_ports = [
+        project_root / path for path in paths if path in direct_port_paths
+    ]
+    source_report = (
+        audit_source_freshness(
+            project_root,
+            selected_direct_ports,
+            source_glob=config.tex_source_glob,
+            source_map=config.lt_source_files,
+        )
+        if selected_direct_ports
+        else ProjectFreshness((), ())
+    )
+    source_by_chapter = source_report.by_chapter()
     statuses = [
         classify_chapter(
             project_root,
@@ -441,16 +502,18 @@ def main() -> int:
             native_warnings=native_warnings,
             native_warnings_scope=args.native_warnings_scope,
             direct_port_paths=direct_port_paths,
+            source_freshness=source_by_chapter.get(relative_path),
         )
         for relative_path in paths
     ]
 
     counts = Counter(status.state for status in statuses)
-    complete = report_complete(statuses)
+    complete = report_complete(statuses) and not source_report.errors
 
     print(f"project root: {project_root}")
     print(f"chapter_root: {config.chapter_root}")
     print(f"build_checked: {'yes' if args.build else 'no'}")
+    print(f"source_freshness_errors: {len(source_report.errors)}")
     if args.build:
         print(
             "native_warnings: "
@@ -464,6 +527,8 @@ def main() -> int:
     print("chapters:")
     for status in sorted(statuses, key=sort_key):
         print_status(status)
+    for error in source_report.errors:
+        print(f"source-freshness error: {error}")
 
     if args.require_complete and not complete:
         return 1

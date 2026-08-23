@@ -47,6 +47,7 @@ class HarnessConfigTests(unittest.TestCase):
             self.assertEqual(config.package_name, 'DemoBlueprint')
             self.assertEqual(config.chapter_root, 'DemoBlueprint/Chapters')
             self.assertEqual(config.lt_default_chapters, ())
+            self.assertEqual(config.lt_source_files, ())
             self.assertEqual(
                 config.lt_node_kind_pairs,
                 (
@@ -73,6 +74,47 @@ class HarnessConfigTests(unittest.TestCase):
             )
             config = load_config(root)
             self.assertIn(('proposition', 'theorem'), config.lt_node_kind_pairs)
+
+    def test_explicit_source_files_cover_every_direct_port_chapter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root)
+            config_path = root / 'verso-harness.toml'
+            config_path.write_text(
+                config_path.read_text(encoding='utf-8').replace(
+                    'default_chapters = []',
+                    'default_chapters = ["DemoBlueprint/Chapters/Main.lean"]',
+                )
+                + '\n[lt.source_files]\n'
+                + '"DemoBlueprint/Chapters/Main.lean" = ["blueprint/src/chapter/main.tex"]\n',
+                encoding='utf-8',
+            )
+            config = load_config(root)
+            self.assertEqual(
+                config.lt_source_files,
+                ((
+                    'DemoBlueprint/Chapters/Main.lean',
+                    ('blueprint/src/chapter/main.tex',),
+                ),),
+            )
+
+    def test_partial_explicit_source_files_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root)
+            config_path = root / 'verso-harness.toml'
+            config_path.write_text(
+                config_path.read_text(encoding='utf-8').replace(
+                    'default_chapters = []',
+                    'default_chapters = ["DemoBlueprint/Chapters/Main.lean"]',
+                )
+                + '\n[lt.source_files]\n'
+                + '"DemoBlueprint/Chapters/Other.lean" = ["blueprint/src/chapter/other.tex"]\n',
+                encoding='utf-8',
+            )
+            with self.assertRaises(SystemExit) as exc:
+                load_config(root)
+            self.assertIn('lt.source_files is missing default chapters', str(exc.exception))
 
     def test_harness_warning_and_strict_link_policy_can_be_configured(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -18,6 +18,7 @@ from _harnesslib import resolve_chapter_paths, resolve_project_root  # noqa: E40
 MALFORMED_INLINE_MATH_RE = re.compile(r"\$`[^`\n]+`\$")
 EXTRA_CLOSING_BACKTICK_RE = re.compile(r"\$`[^`\n]+``")
 MISSING_CLOSING_BACKTICK_RE = re.compile(r"\$`[^`\n$]+\$")
+STRAY_TEX_CLOSER_RE = re.compile(r"`\$\$?")
 INLINE_MATH_RE = re.compile(r"\$`[^`\n]*`")
 INLINE_CODE_RE = re.compile(r"(?<!\$)`([^`\n]+)`")
 OBSOLETE_BOLD_SWITCH_RE = re.compile(r"\\bf\b")
@@ -114,6 +115,14 @@ def suspicious_math_syntax(path: Path) -> list[str]:
                 errors.append(
                     f"{path}:{line_no}: malformed Verso inline math delimiter; "
                     f"missing closing backtick before '$': {stripped}"
+                )
+            if (
+                STRAY_TEX_CLOSER_RE.search(line)
+                and not MALFORMED_INLINE_MATH_RE.search(line)
+            ):
+                errors.append(
+                    f"{path}:{line_no}: malformed Verso math delimiter; "
+                    f"TeX-style closing '$' after a Verso math backtick should be removed: {stripped}"
                 )
             masked = mask_inline_math(line)
             for m in INLINE_CODE_RE.finditer(masked):
