@@ -178,6 +178,62 @@ Alpha.
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertEqual(result.stdout.strip(), '')
 
+    def test_cli_accepts_source_label_alias_for_lean_named_use(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::theorem "foo" (uses := "target_label")
+Alpha.
+:::
+```tex "foo"
+\\begin{theorem}
+\\label{foo}
+\\uses{Demo.target}
+Alpha.
+\\end{theorem}
+```
+"""
+        source = """\\begin{definition}
+\\lean{Demo.target}
+\\label{target_label}
+Target.
+\\end{definition}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            source_dir = root / 'blueprint' / 'src' / 'chapter'
+            source_dir.mkdir(parents=True)
+            (source_dir / 'main.tex').write_text(source, encoding='utf-8')
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), '')
+
+    def test_cli_accepts_source_label_alias_for_lean_named_ref(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+See {bpref "target_label"}[].
+```tex
+See theorem~\\ref{Demo.target}.
+```
+"""
+        source = """\\begin{definition}
+\\lean{Demo.target}
+\\label{target_label}
+Target.
+\\end{definition}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            source_dir = root / 'blueprint' / 'src' / 'chapter'
+            source_dir.mkdir(parents=True)
+            (source_dir / 'main.tex').write_text(source, encoding='utf-8')
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), '')
+
     def test_cli_accepts_dependency_list_label_uses_authorized_by_source(self) -> None:
         content = """#doc (Manual) "Demo" =>
 
