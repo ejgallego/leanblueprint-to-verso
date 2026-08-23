@@ -17,6 +17,7 @@ from _harnesslib import (  # noqa: E402
     load_config,
     resolve_project_root,
 )
+from _source_metadata import source_lean_label_aliases  # noqa: E402
 from check_blueprint_node_kinds import audit_file as audit_node_kinds  # noqa: E402
 from check_lt_similarity import paired_blocks, score_pair  # noqa: E402
 from check_lt_source_freshness import (  # noqa: E402
@@ -167,6 +168,7 @@ def classify_direct_port(
     build: bool,
     native_warnings: bool,
     native_warnings_scope: str,
+    source_aliases: dict[str, set[str]],
     source_freshness: ChapterFreshness | None = None,
 ) -> CompletionStatus:
     path = project_root / relative_path
@@ -204,7 +206,10 @@ def classify_direct_port(
             reasons=tuple(reasons),
         )
 
-    scores = [score_pair(block, tex) for block, tex in pairs]
+    scores = [
+        score_pair(block, tex, source_aliases=source_aliases)
+        for block, tex in pairs
+    ]
     low_similarity = sum(score.primary_ratio < warn_below for score in scores)
     node_kind_issues = len(audit_node_kinds(path, tex_to_verso=dict(config.lt_node_kind_pairs)))
     math_issues = len(suspicious_math_syntax(path))
@@ -334,6 +339,7 @@ def classify_chapter(
     native_warnings: bool,
     native_warnings_scope: str,
     direct_port_paths: set[Path],
+    source_aliases: dict[str, set[str]],
     source_freshness: ChapterFreshness | None = None,
 ) -> CompletionStatus:
     if relative_path not in direct_port_paths:
@@ -360,6 +366,7 @@ def classify_chapter(
         build=build,
         native_warnings=native_warnings,
         native_warnings_scope=native_warnings_scope,
+        source_aliases=source_aliases,
         source_freshness=source_freshness,
     )
 
@@ -465,6 +472,7 @@ def main() -> int:
 
     project_root = resolve_project_root(args.project_root)
     config = load_config(project_root)
+    source_aliases = source_lean_label_aliases(project_root, config.tex_source_glob)
     paths = selected_paths(
         project_root,
         chapter_root=config.chapter_root,
@@ -502,6 +510,7 @@ def main() -> int:
             native_warnings=native_warnings,
             native_warnings_scope=args.native_warnings_scope,
             direct_port_paths=direct_port_paths,
+            source_aliases=source_aliases,
             source_freshness=source_by_chapter.get(relative_path),
         )
         for relative_path in paths

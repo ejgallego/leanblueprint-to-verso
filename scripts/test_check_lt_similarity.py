@@ -77,6 +77,45 @@ Alpha.
         self.assertEqual(score.tex_lean, {"Baz.qux", "Demo.quux"})
         self.assertEqual(score.metadata_diff_count, 0)
 
+    def test_source_lean_use_resolves_to_selected_blueprint_label(self) -> None:
+        verso = verso_block(
+            "Alpha.",
+            header=':::theorem "demo" (uses := "target_label")',
+        )
+        tex = tex_block("\\uses{Demo.target}\nAlpha.")
+        score = score_pair(
+            verso,
+            tex,
+            source_aliases={"Demo.target": {"target_label"}},
+        )
+        self.assertEqual(score.tex_uses, {"target_label"})
+        self.assertEqual(score.metadata_diff_count, 0)
+
+    def test_source_lean_ref_resolves_to_selected_blueprint_label(self) -> None:
+        verso = verso_block('See {bpref "target_label"}[].')
+        tex = tex_block("See theorem~\\ref{Demo.target}.")
+        score = score_pair(
+            verso,
+            tex,
+            source_aliases={"Demo.target": {"target_label"}},
+        )
+        self.assertEqual(score.tex_refs, {"target_label"})
+        self.assertEqual(score.extra_bprefs, set())
+
+    def test_source_lean_use_does_not_legalize_declaration_as_node_id(self) -> None:
+        verso = verso_block(
+            "Alpha.",
+            header=':::theorem "demo" (uses := "Demo.target")',
+        )
+        tex = tex_block("\\uses{Demo.target}\nAlpha.")
+        score = score_pair(
+            verso,
+            tex,
+            source_aliases={"Demo.target": {"target_label"}},
+        )
+        self.assertEqual(score.missing_uses, {"target_label"})
+        self.assertEqual(score.extra_uses, {"Demo.target"})
+
     def test_block_uses_string_option_is_extracted(self) -> None:
         self.assertEqual(
             extract_verso_uses(':::theorem "demo" (uses := "foo, bar")\nAlpha.'),

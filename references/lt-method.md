@@ -30,9 +30,10 @@ Faithfulness`) are accepted aliases for the same workflow.
   when the source reference is naturally part of the translated prose.
 - TeX sources sometimes name a dependency by its `\lean{...}` declaration even
   when the target node has a different `\label{...}`. Verso dependencies and
-  references must use the Blueprint label. The source-authorization checker
-  accepts that label when the maintained TeX source establishes the
-  declaration-to-label mapping; keep the adjacent raw witness unchanged.
+  references must use the Blueprint label. The source-aware metadata,
+  similarity, and status checks accept that label when the maintained TeX
+  source establishes the declaration-to-label mapping; keep the adjacent raw
+  witness unchanged.
 - Translate TeX `\ref{...}` references to blueprint nodes as inline
   `{bpref "..."}[]` links when the prose is only pointing at the node and
   should not add a dependency edge.

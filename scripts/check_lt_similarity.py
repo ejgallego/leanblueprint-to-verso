@@ -15,7 +15,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from _harnesslib import resolve_chapter_paths, resolve_project_root  # noqa: E402
+from _harnesslib import load_config, resolve_chapter_paths, resolve_project_root  # noqa: E402
+from _source_metadata import resolve_source_targets, source_lean_label_aliases  # noqa: E402
 from check_lt_source_pairs import Block, parse_blocks  # noqa: E402
 
 PLACEHOLDER_LEAN_TARGETS = {"???", "TODO", "TBD", "FIXME"}
@@ -489,7 +490,12 @@ def extract_verso_header_id(header: str, kind: str) -> str | None:
     return match.group(1) if match else None
 
 
-def score_pair(block: Block, tex: Block) -> PairScore:
+def score_pair(
+    block: Block,
+    tex: Block,
+    *,
+    source_aliases: dict[str, set[str]] | None = None,
+) -> PairScore:
     verso_body = block_body(block)
     tex_body = block_body(tex)
     verso_text = normalize_verso(verso_body)
@@ -499,6 +505,14 @@ def score_pair(block: Block, tex: Block) -> PairScore:
     tex_header_label = extract_tex_header_label(tex.header)
     if tex_header_label is not None and tex_header_label == verso_header_id:
         tex_labels.add(tex_header_label)
+    verso_uses = extract_verso_uses(block.header + "\n" + verso_body)
+    verso_bprefs = extract_verso_bprefs(verso_body)
+    verso_refs = extract_verso_refs(verso_body)
+    aliases = source_aliases or {}
+    tex_uses = resolve_source_targets(extract_tex_uses(tex_body), verso_uses, aliases)
+    tex_refs = resolve_source_targets(
+        extract_tex_refs(tex_body), verso_bprefs | verso_refs, aliases
+    )
     return PairScore(
         block=block,
         tex=tex,
@@ -507,14 +521,14 @@ def score_pair(block: Block, tex: Block) -> PairScore:
         length_ratio=length_ratio(verso_text, tex_text),
         verso_text=verso_text,
         tex_text=tex_text,
-        verso_uses=extract_verso_uses(block.header + "\n" + verso_body),
-        verso_bprefs=extract_verso_bprefs(verso_body),
-        verso_refs=extract_verso_refs(verso_body),
-        tex_uses=extract_tex_uses(tex_body),
+        verso_uses=verso_uses,
+        verso_bprefs=verso_bprefs,
+        verso_refs=verso_refs,
+        tex_uses=tex_uses,
         verso_lean=extract_verso_lean(block.header),
         tex_lean=extract_tex_lean(tex_body),
         tex_labels=tex_labels,
-        tex_refs=extract_tex_refs(tex_body),
+        tex_refs=tex_refs,
         tex_env_kind=extract_tex_env_kind(tex_body),
         tex_env_kinds=extract_tex_env_kinds(tex_body),
         verso_env_kind=extract_verso_env_kind(block.header, block.kind),
@@ -734,6 +748,8 @@ def main() -> int:
 
     project_root = resolve_project_root(args.project_root)
     paths = resolve_chapter_paths(project_root, args.paths)
+    config = load_config(project_root)
+    source_aliases = source_lean_label_aliases(project_root, config.tex_source_glob)
 
     missing = [path for path in paths if not path.exists()]
     if missing:
@@ -753,7 +769,10 @@ def main() -> int:
             overall_fail = True
             continue
 
-        scores = [score_pair(block, tex) for block, tex in pairs]
+        scores = [
+            score_pair(block, tex, source_aliases=source_aliases)
+            for block, tex in pairs
+        ]
         if not scores:
             print(f"{path}: no comparable block pairs found")
             continue
