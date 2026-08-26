@@ -250,6 +250,56 @@ class StatusCompletionTests(unittest.TestCase):
             self.assertIn("  complete: yes", output)
             self.assertIn("[done] DemoBlueprint/Chapters/Clean.lean", output)
 
+    def test_status_completion_reports_explicit_source_lean_debt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_file(
+                root / "verso-harness.toml",
+                "\n".join(
+                    [
+                        'package_name = "DemoBlueprint"',
+                        'blueprint_main = "BlueprintMain"',
+                        'formalization_path = "Demo"',
+                        'chapter_root = "DemoBlueprint/Chapters"',
+                        'tex_source_glob = "./blueprint/src/chapter/main.tex"',
+                        "",
+                        "[lt]",
+                        'default_chapters = ["DemoBlueprint/Chapters/Main.lean"]',
+                        'unresolved_lean_targets = ["Demo.notImplemented"]',
+                        "",
+                    ]
+                ),
+            )
+            content = """#doc (Manual) "Main" =>
+
+:::theorem "demo"
+Alpha.
+:::
+```tex
+\\begin{theorem}
+\\lean{Demo.notImplemented}
+Alpha.
+\\end{theorem}
+```
+"""
+            write_file(root / "DemoBlueprint/Chapters/Main.lean", content)
+            source = content.split("```tex\n", 1)[1].removesuffix("```\n")
+            write_file(root / "blueprint/src/chapter/main.tex", source)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("source_unresolved_lean=1", result.stdout)
+
     def test_status_completion_blocks_on_stale_upstream_witnesses(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

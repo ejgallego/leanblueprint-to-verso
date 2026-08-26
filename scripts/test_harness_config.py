@@ -48,6 +48,8 @@ class HarnessConfigTests(unittest.TestCase):
             self.assertEqual(config.chapter_root, 'DemoBlueprint/Chapters')
             self.assertEqual(config.lt_default_chapters, ())
             self.assertEqual(config.lt_source_files, ())
+            self.assertEqual(config.lt_lean_target_aliases, ())
+            self.assertEqual(config.lt_unresolved_lean_targets, ())
             self.assertEqual(
                 config.lt_node_kind_pairs,
                 (
@@ -61,6 +63,65 @@ class HarnessConfigTests(unittest.TestCase):
             self.assertFalse(config.native_warnings)
             self.assertFalse(config.docstring_warnings)
             self.assertTrue(config.strict_external_code)
+
+    def test_source_lean_target_policy_is_loaded(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root)
+            config_path = root / 'verso-harness.toml'
+            config_path.write_text(
+                config_path.read_text(encoding='utf-8').replace(
+                    'default_chapters = []',
+                    'default_chapters = []\n'
+                    'unresolved_lean_targets = ["Demo.notImplemented"]',
+                )
+                + '\n[lt.lean_target_aliases]\n'
+                + '"Demo.oldName" = "Demo.currentName"\n',
+                encoding='utf-8',
+            )
+            config = load_config(root)
+            self.assertEqual(
+                config.lt_lean_target_aliases,
+                (("Demo.oldName", "Demo.currentName"),),
+            )
+            self.assertEqual(
+                config.lt_unresolved_lean_targets,
+                ("Demo.notImplemented",),
+            )
+
+    def test_lean_target_cannot_be_both_aliased_and_unresolved(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root)
+            config_path = root / 'verso-harness.toml'
+            config_path.write_text(
+                config_path.read_text(encoding='utf-8').replace(
+                    'default_chapters = []',
+                    'default_chapters = []\n'
+                    'unresolved_lean_targets = ["Demo.oldName"]',
+                )
+                + '\n[lt.lean_target_aliases]\n'
+                + '"Demo.oldName" = "Demo.currentName"\n',
+                encoding='utf-8',
+            )
+            with self.assertRaises(SystemExit) as exc:
+                load_config(root)
+            self.assertIn('cannot be both aliased and unresolved', str(exc.exception))
+
+    def test_no_op_lean_target_alias_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root)
+            config_path = root / 'verso-harness.toml'
+            config_path.write_text(
+                config_path.read_text(encoding='utf-8')
+                + '\n[lt.lean_target_aliases]\n'
+                + '"Demo.sameName" = "Demo.sameName"\n',
+                encoding='utf-8',
+            )
+            with self.assertRaises(SystemExit) as exc:
+                load_config(root)
+            self.assertIn('contains no-op aliases', str(exc.exception))
 
     def test_custom_node_kind_pairs_extend_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

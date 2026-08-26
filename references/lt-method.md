@@ -82,6 +82,29 @@ Example source ownership:
 "MyBlueprint/Chapters/Main.lean" = ["Formalization/blueprint/src/main.tex"]
 ```
 
+If current upstream TeX names a declaration that was renamed in Lean, preserve
+the raw witness and map the source name to the declaration that actually exists:
+
+```toml
+[lt.lean_target_aliases]
+"Formalization.oldName" = "Formalization.currentName"
+```
+
+If upstream TeX names a declaration that has no implementation, keep the local
+Blueprint node unattached and record that source debt explicitly in `[lt]`:
+
+```toml
+[lt]
+unresolved_lean_targets = ["Formalization.notImplemented"]
+```
+
+These settings only reconcile source metadata during LT comparison. They do
+not create declarations or weaken Verso's external-code resolution. Verify every
+alias target with the normal site build or remote Pages CI, and remove aliases
+or unresolved entries as soon as upstream metadata and Lean agree again.
+`check_harness.py` fails if a configured source-side target no longer occurs in
+the maintained TeX source, so these exceptions expire instead of accumulating.
+
 Example reviewed deviation:
 
 ```toml

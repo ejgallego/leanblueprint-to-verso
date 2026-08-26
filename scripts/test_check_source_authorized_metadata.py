@@ -11,23 +11,34 @@ import unittest
 SCRIPT_DIR = Path(__file__).resolve().parent
 
 
-def write_config(root: Path, default_chapters: list[str]) -> None:
-    (root / 'verso-harness.toml').write_text(
-        '\n'.join(
-            [
-                'package_name = "DemoBlueprint"',
-                'blueprint_main = "BlueprintMain"',
-                'formalization_path = "Demo"',
-                'chapter_root = "."',
-                'tex_source_glob = "./blueprint/src/chapter/*.tex"',
-                '',
-                '[lt]',
-                f'default_chapters = [{", ".join(repr(path) for path in default_chapters)}]',
-                '',
-            ]
-        ),
-        encoding='utf-8',
-    )
+def write_config(
+    root: Path,
+    default_chapters: list[str],
+    *,
+    lean_target_aliases: dict[str, str] | None = None,
+    unresolved_lean_targets: list[str] | None = None,
+) -> None:
+    lines = [
+        'package_name = "DemoBlueprint"',
+        'blueprint_main = "BlueprintMain"',
+        'formalization_path = "Demo"',
+        'chapter_root = "."',
+        'tex_source_glob = "./blueprint/src/chapter/*.tex"',
+        '',
+        '[lt]',
+        f'default_chapters = [{", ".join(repr(path) for path in default_chapters)}]',
+    ]
+    if unresolved_lean_targets:
+        values = ', '.join(repr(target) for target in unresolved_lean_targets)
+        lines.append(f'unresolved_lean_targets = [{values}]')
+    if lean_target_aliases:
+        lines.extend(['', '[lt.lean_target_aliases]'])
+        lines.extend(
+            f'{source!r} = {target!r}'
+            for source, target in lean_target_aliases.items()
+        )
+    lines.append('')
+    (root / 'verso-harness.toml').write_text('\n'.join(lines), encoding='utf-8')
 
 
 def run_checker(project_root: Path) -> subprocess.CompletedProcess[str]:
@@ -150,6 +161,58 @@ Alpha.
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_config(root, ['Demo.lean'])
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), '')
+
+    def test_cli_accepts_current_declaration_authorized_by_source_alias(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::theorem "foo" (lean := "Demo.currentName")
+Alpha.
+:::
+```tex "foo"
+\\begin{theorem}
+\\label{foo}
+\\lean{Demo.oldName}
+Alpha.
+\\end{theorem}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(
+                root,
+                ['Demo.lean'],
+                lean_target_aliases={'Demo.oldName': 'Demo.currentName'},
+            )
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), '')
+
+    def test_cli_accepts_explicitly_unresolved_source_target_without_local_link(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::theorem "foo"
+Alpha.
+:::
+```tex "foo"
+\\begin{theorem}
+\\label{foo}
+\\lean{Demo.notImplemented}
+Alpha.
+\\end{theorem}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(
+                root,
+                ['Demo.lean'],
+                unresolved_lean_targets=['Demo.notImplemented'],
+            )
             (root / 'Demo.lean').write_text(content, encoding='utf-8')
             result = run_checker(root)
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)

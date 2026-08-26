@@ -74,6 +74,7 @@ class CompletionStatus:
     source_stale: int = 0
     source_missing: int = 0
     source_deviations: int = 0
+    source_unresolved_lean: int = 0
 
 
 def chapter_root_paths(project_root: Path, chapter_root: str) -> list[Path]:
@@ -206,8 +207,16 @@ def classify_direct_port(
             reasons=tuple(reasons),
         )
 
+    lean_target_aliases = dict(config.lt_lean_target_aliases)
+    unresolved_lean_targets = set(config.lt_unresolved_lean_targets)
     scores = [
-        score_pair(block, tex, source_aliases=source_aliases)
+        score_pair(
+            block,
+            tex,
+            source_aliases=source_aliases,
+            lean_target_aliases=lean_target_aliases,
+            unresolved_lean_targets=unresolved_lean_targets,
+        )
         for block, tex in pairs
     ]
     low_similarity = sum(score.primary_ratio < warn_below for score in scores)
@@ -215,6 +224,7 @@ def classify_direct_port(
     math_issues = len(suspicious_math_syntax(path))
     metadata_dirty = metadata_dirty_count(scores)
     label_issues = label_issue_count(scores)
+    source_unresolved_lean = sum(len(score.unresolved_tex_lean) for score in scores)
 
     source_stale = source_freshness.stale_witness_count if source_freshness else 0
     source_missing = source_freshness.missing_source_label_count if source_freshness else 0
@@ -241,6 +251,7 @@ def classify_direct_port(
             source_stale=source_stale,
             source_missing=source_missing,
             source_deviations=source_deviations,
+            source_unresolved_lean=source_unresolved_lean,
         )
 
     paired_reasons: list[str] = []
@@ -265,6 +276,7 @@ def classify_direct_port(
             build_ok=None,
             reasons=tuple(paired_reasons),
             source_deviations=source_deviations,
+            source_unresolved_lean=source_unresolved_lean,
         )
 
     if metadata_dirty:
@@ -285,6 +297,7 @@ def classify_direct_port(
             build_ok=None,
             reasons=tuple(reasons),
             source_deviations=source_deviations,
+            source_unresolved_lean=source_unresolved_lean,
         )
 
     if not build:
@@ -302,6 +315,7 @@ def classify_direct_port(
             build_ok=None,
             reasons=("build not checked; rerun with --build for final completion",),
             source_deviations=source_deviations,
+            source_unresolved_lean=source_unresolved_lean,
         )
 
     build_ok, build_reasons = build_status(
@@ -326,6 +340,7 @@ def classify_direct_port(
         build_ok=build_ok,
         reasons=build_reasons,
         source_deviations=source_deviations,
+        source_unresolved_lean=source_unresolved_lean,
     )
 
 
@@ -379,7 +394,8 @@ def print_status(status: CompletionStatus) -> None:
         f"metadata={status.metadata_dirty} labels={status.label_issues} "
         f"node_kinds={status.node_kind_issues} math={status.math_issues} "
         f"source_stale={status.source_stale} source_missing={status.source_missing} "
-        f"source_deviations={status.source_deviations}"
+        f"source_deviations={status.source_deviations} "
+        f"source_unresolved_lean={status.source_unresolved_lean}"
     )
     print(f"  metrics: {details}")
     if status.build_checked:

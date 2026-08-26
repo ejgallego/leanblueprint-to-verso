@@ -50,6 +50,19 @@ def source_lean_label_aliases(project_root: Path, source_glob: str) -> dict[str,
     return aliases
 
 
+def source_lean_targets(project_root: Path, source_glob: str) -> set[str]:
+    """Collect declaration names from current maintained TeX source metadata."""
+    targets: set[str] = set()
+    paths = sorted(
+        candidate for candidate in project_root.glob(source_glob) if candidate.is_file()
+    )
+    for path in paths:
+        source = strip_tex_comments(path.read_text(encoding="utf-8"))
+        for match in TEX_LEAN_RE.finditer(source):
+            targets.update(split_csv_values(match.group(1)))
+    return targets
+
+
 def resolve_source_targets(
     source_targets: set[str],
     local_targets: set[str],

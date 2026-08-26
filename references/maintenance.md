@@ -125,6 +125,10 @@ The upstream formalization determines the Lean toolchain. In a consumer repo:
   `check_harness.py` validates configuration only, so run the normal
   `scripts/ci-pages.sh` site build or equivalent remote Pages CI to catch
   declarations renamed, replaced, or removed by the formalization update
+- when maintained TeX still uses a stale declaration name, preserve the raw
+  witness and use `[lt.lean_target_aliases]` to authorize the real declaration;
+  use `lt.unresolved_lean_targets` only when the source target has no
+  implementation, and leave that local Blueprint node unattached
 
 Do not bundle unrelated blueprint prose edits into a dependency-upgrade change,
 do not bump the consumer toolchain independently of upstream, and do not run raw
