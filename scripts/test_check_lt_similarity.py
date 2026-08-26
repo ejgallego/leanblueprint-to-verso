@@ -14,6 +14,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from check_lt_similarity import extract_verso_uses, paired_blocks, score_pair  # noqa: E402
 from check_lt_source_pairs import Block  # noqa: E402
+from _source_metadata import source_lean_label_aliases  # noqa: E402
 
 
 def verso_block(body: str, header: str = ':::theorem "demo"') -> Block:
@@ -44,6 +45,52 @@ def write_config(root: Path, default_chapters: list[str]) -> None:
 
 
 class CheckLtSimilarityTests(unittest.TestCase):
+    def test_source_multi_labels_and_declarations_map_positionally(self) -> None:
+        source = r"""
+\begin{lemma}
+  \label{Demo.first_label,
+    Demo.second_label}
+  \lean{Demo.firstDeclaration,
+    Demo.secondDeclaration}
+  Alpha.
+\end{lemma}
+""".strip()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = root / "blueprint" / "src" / "chapter"
+            chapter.mkdir(parents=True)
+            (chapter / "Demo.tex").write_text(source, encoding="utf-8")
+
+            aliases = source_lean_label_aliases(
+                root, "blueprint/src/chapter/*.tex"
+            )
+
+        self.assertEqual(aliases["Demo.firstDeclaration"], {"Demo.first_label"})
+        self.assertEqual(aliases["Demo.secondDeclaration"], {"Demo.second_label"})
+
+    def test_source_one_label_with_multiple_declarations_maps_all_to_label(
+        self,
+    ) -> None:
+        source = r"""
+\begin{lemma}
+  \label{Demo.shared_label}
+  \lean{Demo.firstDeclaration, Demo.secondDeclaration}
+  Alpha.
+\end{lemma}
+""".strip()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = root / "blueprint" / "src" / "chapter"
+            chapter.mkdir(parents=True)
+            (chapter / "Demo.tex").write_text(source, encoding="utf-8")
+
+            aliases = source_lean_label_aliases(
+                root, "blueprint/src/chapter/*.tex"
+            )
+
+        self.assertEqual(aliases["Demo.firstDeclaration"], {"Demo.shared_label"})
+        self.assertEqual(aliases["Demo.secondDeclaration"], {"Demo.shared_label"})
+
     def test_metadata_and_markup_are_ignored(self) -> None:
         verso = verso_block(
             'Alpha {uses "foo"}[] {bpref "bar"}[] [Beta](https://example.com) and $`Gamma`$.'

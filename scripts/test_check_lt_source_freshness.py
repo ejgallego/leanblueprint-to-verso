@@ -106,6 +106,32 @@ class SourceFreshnessTests(unittest.TestCase):
             self.assertEqual(result.source_labels[0].label, "def:new")
             self.assertTrue(report.needs_review)
 
+    def test_commented_out_source_nodes_are_not_reported_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = self.make_project(root)
+            write_file(
+                root / chapter,
+                '#doc (Manual) "Main" =>\n\nExact.\n```tex\nExact.\n```\n',
+            )
+            write_file(
+                root / "blueprint" / "main.tex",
+                "\n".join(
+                    [
+                        "Exact.",
+                        r"% \begin{lemma}",
+                        r"%   \label{lemma:inactive}",
+                        r"%   This source node is commented out.",
+                        r"% \end{lemma}",
+                    ]
+                ),
+            )
+
+            report = audit_project(root, [chapter], source_glob="blueprint/*.tex")
+
+            self.assertFalse(report.needs_review)
+            self.assertEqual(report.chapters[0].source_labels, ())
+
     def test_fingerprinted_deviations_are_applied_and_expire(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

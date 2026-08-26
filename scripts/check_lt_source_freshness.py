@@ -229,7 +229,7 @@ def load_deviations(project_root: Path) -> SourceDeviations:
 
 def source_nodes(text: str) -> tuple[SourceNode, ...]:
     nodes: list[SourceNode] = []
-    for match in SOURCE_ENV_RE.finditer(text):
+    for match in SOURCE_ENV_RE.finditer(strip_tex_comments(text)):
         # Only the environment's first label names the Blueprint node. Later
         # labels can name equations or other anchors nested in the node body.
         label_match = SOURCE_LABEL_RE.search(match.group("body"))
