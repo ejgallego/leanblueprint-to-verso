@@ -14,7 +14,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from check_lt_similarity import extract_verso_uses, paired_blocks, score_pair  # noqa: E402
 from check_lt_source_pairs import Block  # noqa: E402
-from _source_metadata import source_lean_label_aliases  # noqa: E402
+from _source_metadata import source_lean_label_aliases, source_lean_targets  # noqa: E402
 
 
 def verso_block(body: str, header: str = ':::theorem "demo"') -> Block:
@@ -45,6 +45,17 @@ def write_config(root: Path, default_chapters: list[str]) -> None:
 
 
 class CheckLtSimilarityTests(unittest.TestCase):
+    def test_source_lean_targets_collects_current_metadata(self) -> None:
+        source = "\\lean{Demo.one, Demo.two}\n% \\lean{Demo.commented}\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = root / "blueprint" / "src" / "chapter"
+            chapter.mkdir(parents=True)
+            (chapter / "Demo.tex").write_text(source, encoding="utf-8")
+            targets = source_lean_targets(root, "blueprint/src/chapter/*.tex")
+
+        self.assertEqual(targets, {"Demo.one", "Demo.two"})
+
     def test_source_multi_labels_and_declarations_map_positionally(self) -> None:
         source = r"""
 \begin{lemma}
@@ -123,6 +134,34 @@ Alpha.
         self.assertEqual(score.verso_lean, {"Baz.qux", "Demo.quux"})
         self.assertEqual(score.tex_lean, {"Baz.qux", "Demo.quux"})
         self.assertEqual(score.metadata_diff_count, 0)
+
+    def test_source_lean_target_alias_authorizes_current_declaration(self) -> None:
+        verso = verso_block(
+            "Alpha.",
+            header=':::theorem "demo" (lean := "Demo.currentName")',
+        )
+        tex = tex_block("\\lean{Demo.oldName}\nAlpha.")
+        score = score_pair(
+            verso,
+            tex,
+            lean_target_aliases={"Demo.oldName": "Demo.currentName"},
+        )
+        self.assertEqual(score.tex_lean, {"Demo.currentName"})
+        self.assertEqual(score.missing_lean, set())
+        self.assertEqual(score.extra_lean, set())
+
+    def test_unresolved_source_lean_target_is_recorded_without_requiring_link(self) -> None:
+        verso = verso_block("Alpha.", header=':::theorem "demo"')
+        tex = tex_block("\\lean{Demo.notImplemented}\nAlpha.")
+        score = score_pair(
+            verso,
+            tex,
+            unresolved_lean_targets={"Demo.notImplemented"},
+        )
+        self.assertEqual(score.tex_lean, set())
+        self.assertEqual(score.unresolved_tex_lean, {"Demo.notImplemented"})
+        self.assertEqual(score.missing_lean, set())
+        self.assertEqual(score.extra_lean, set())
 
     def test_source_lean_use_resolves_to_selected_blueprint_label(self) -> None:
         verso = verso_block(

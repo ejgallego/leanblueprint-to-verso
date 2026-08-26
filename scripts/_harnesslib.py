@@ -43,6 +43,8 @@ class HarnessConfig:
     lt_default_chapters: tuple[str, ...]
     lt_node_kind_pairs: tuple[tuple[str, str], ...]
     lt_source_files: tuple[tuple[str, tuple[str, ...]], ...]
+    lt_lean_target_aliases: tuple[tuple[str, str], ...]
+    lt_unresolved_lean_targets: tuple[str, ...]
     native_warnings: bool
     docstring_warnings: bool
     strict_external_code: bool
@@ -275,6 +277,55 @@ def load_lt_source_files(
     return tuple(mappings)
 
 
+def load_lt_lean_target_policy(
+    lt_section: dict[str, object],
+) -> tuple[tuple[tuple[str, str], ...], tuple[str, ...]]:
+    aliases = (
+        require_string_table(
+            lt_section,
+            "lean_target_aliases",
+            "lt.lean_target_aliases",
+            allow_empty=False,
+        )
+        if "lean_target_aliases" in lt_section
+        else ()
+    )
+    unresolved = (
+        tuple(
+            target.strip()
+            for target in require_string_list(
+                lt_section,
+                "unresolved_lean_targets",
+                "lt.unresolved_lean_targets",
+                allow_empty=False,
+            )
+        )
+        if "unresolved_lean_targets" in lt_section
+        else ()
+    )
+
+    alias_sources = {source for source, _ in aliases}
+    duplicate_unresolved = sorted(
+        target for target in set(unresolved) if unresolved.count(target) > 1
+    )
+    if duplicate_unresolved:
+        raise SystemExit(
+            f"{CONFIG_FILENAME}: lt.unresolved_lean_targets contains duplicates: "
+            f"{duplicate_unresolved}"
+        )
+    overlap = sorted(alias_sources & set(unresolved))
+    if overlap:
+        raise SystemExit(
+            f"{CONFIG_FILENAME}: Lean targets cannot be both aliased and unresolved: {overlap}"
+        )
+    self_aliases = sorted(source for source, target in aliases if source == target)
+    if self_aliases:
+        raise SystemExit(
+            f"{CONFIG_FILENAME}: lt.lean_target_aliases contains no-op aliases: {self_aliases}"
+        )
+    return aliases, unresolved
+
+
 def load_config(project_root: Path) -> HarnessConfig:
     path = config_path(project_root)
     if not path.exists():
@@ -317,6 +368,9 @@ def load_config(project_root: Path) -> HarnessConfig:
     )
     lt_node_kind_pairs = load_lt_node_kind_pairs(lt_section)
     lt_source_files = load_lt_source_files(lt_section)
+    lt_lean_target_aliases, lt_unresolved_lean_targets = load_lt_lean_target_policy(
+        lt_section
+    )
     for chapter in lt_default_chapters:
         require_relative_path(chapter, "lt.default_chapters")
 
@@ -388,6 +442,8 @@ def load_config(project_root: Path) -> HarnessConfig:
         lt_default_chapters=lt_default_chapters,
         lt_node_kind_pairs=lt_node_kind_pairs,
         lt_source_files=lt_source_files,
+        lt_lean_target_aliases=lt_lean_target_aliases,
+        lt_unresolved_lean_targets=lt_unresolved_lean_targets,
         native_warnings=native_warnings,
         docstring_warnings=docstring_warnings,
         strict_external_code=strict_external_code,

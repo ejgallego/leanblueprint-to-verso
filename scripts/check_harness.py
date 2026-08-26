@@ -24,6 +24,7 @@ from _harnesslib import (  # noqa: E402
     verso_strict_external_code_option_name,
     verso_warn_line_length_option_name,
 )
+from _source_metadata import source_lean_targets  # noqa: E402
 
 
 PLACEHOLDER_PATTERN = re.compile(r"__[A-Z0-9_]+__")
@@ -159,6 +160,20 @@ def main() -> int:
         for relative in [Path(path) for path in config.lt_default_chapters]:
             if not (project_root / relative).exists():
                 missing.append(relative)
+
+        configured_source_targets = {
+            source for source, _ in config.lt_lean_target_aliases
+        } | set(config.lt_unresolved_lean_targets)
+        if configured_source_targets:
+            current_source_targets = source_lean_targets(
+                project_root, config.tex_source_glob
+            )
+            stale_targets = sorted(configured_source_targets - current_source_targets)
+            if stale_targets:
+                mismatches.append(
+                    "LT Lean target policy contains names absent from the configured "
+                    f"current TeX source: {stale_targets}"
+                )
     placeholder_targets = required.copy()
     if config is not None:
         placeholder_targets.extend(

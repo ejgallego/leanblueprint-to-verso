@@ -20,13 +20,21 @@ def summarize(
     path: Path,
     warn_below: float,
     source_aliases: dict[str, set[str]],
+    lean_target_aliases: dict[str, str],
+    unresolved_lean_targets: set[str],
 ) -> str:
     pairs, errors = paired_blocks(path)
     if errors:
         return f"{path.name}: source-pair-errors={len(errors)}"
 
     scores = [
-        score_pair(block, tex, source_aliases=source_aliases)
+        score_pair(
+            block,
+            tex,
+            source_aliases=source_aliases,
+            lean_target_aliases=lean_target_aliases,
+            unresolved_lean_targets=unresolved_lean_targets,
+        )
         for block, tex in pairs
     ]
     if not scores:
@@ -39,6 +47,7 @@ def summarize(
     strong_refs = sum(len(score.strong_ref_candidates) for score in scores)
     env_refs = sum(len(score.env_ref_hints) for score in scores)
     soft_refs = sum(len(score.soft_ref_hints) for score in scores)
+    source_unresolved_lean = sum(len(score.unresolved_tex_lean) for score in scores)
     return (
         f"{path.name}: pairs={len(scores)} "
         f"avg={statistics.mean(primary_values):.3f} "
@@ -46,7 +55,7 @@ def summarize(
         f"low={low} metadata={metadata} "
         f"ref_review={ref_review} "
         f"strong_refs={strong_refs} env_ref_hints={env_refs} "
-        f"soft_ref_hints={soft_refs}"
+        f"soft_ref_hints={soft_refs} source_unresolved_lean={source_unresolved_lean}"
     )
 
 
@@ -78,13 +87,23 @@ def main() -> int:
     paths = resolve_chapter_paths(project_root, args.paths)
     config = load_config(project_root)
     source_aliases = source_lean_label_aliases(project_root, config.tex_source_glob)
+    lean_target_aliases = dict(config.lt_lean_target_aliases)
+    unresolved_lean_targets = set(config.lt_unresolved_lean_targets)
 
     if not paths:
         print("no chapter files selected for LT status report", file=sys.stderr)
         return 2
 
     for path in paths:
-        print(summarize(path, args.warn_below, source_aliases))
+        print(
+            summarize(
+                path,
+                args.warn_below,
+                source_aliases,
+                lean_target_aliases,
+                unresolved_lean_targets,
+            )
+        )
 
     return 0
 

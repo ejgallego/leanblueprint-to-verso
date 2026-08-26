@@ -10,7 +10,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from _harnesslib import resolve_chapter_paths, resolve_project_root  # noqa: E402
+from _harnesslib import load_config, resolve_chapter_paths, resolve_project_root  # noqa: E402
 from check_lt_similarity import paired_blocks, score_pair  # noqa: E402
 
 
@@ -36,7 +36,10 @@ def main() -> int:
     args = parser.parse_args()
 
     project_root = resolve_project_root(args.project_root)
+    config = load_config(project_root)
     paths = resolve_chapter_paths(project_root, args.paths)
+    lean_target_aliases = dict(config.lt_lean_target_aliases)
+    unresolved_lean_targets = set(config.lt_unresolved_lean_targets)
 
     found = False
     for path in paths:
@@ -47,7 +50,12 @@ def main() -> int:
             found = True
             continue
         for block, tex in pairs:
-            score = score_pair(block, tex)
+            score = score_pair(
+                block,
+                tex,
+                lean_target_aliases=lean_target_aliases,
+                unresolved_lean_targets=unresolved_lean_targets,
+            )
             candidates = sorted(score.label_regrounding_candidates)
             if not candidates:
                 continue

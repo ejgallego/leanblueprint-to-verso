@@ -138,6 +138,64 @@ def run_check(project_root: Path) -> subprocess.CompletedProcess[str]:
 
 
 class CheckHarnessTests(unittest.TestCase):
+    def test_check_harness_rejects_stale_lean_target_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_project(
+                root,
+                lean_toolchain="leanprover/lean4:v4.33.0",
+                verso_ref="v4.33.0",
+                math_lint_option="weak.verso.blueprint.math.lint",
+                warn_line_length_option="weak.verso.code.warnLineLength",
+                strict_external_code=True,
+                strict_external_code_option="weak.verso.blueprint.externalCode.strictResolve",
+                lake_strict_external_code=True,
+            )
+            config_path = root / "verso-harness.toml"
+            config_path.write_text(
+                config_path.read_text(encoding="utf-8").replace(
+                    'default_chapters = ["DemoBlueprint/Chapters/SourceChapter.lean"]',
+                    'default_chapters = ["DemoBlueprint/Chapters/SourceChapter.lean"]\n'
+                    'unresolved_lean_targets = ["Demo.removedFromSource"]',
+                ),
+                encoding="utf-8",
+            )
+            result = run_check(root)
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn(
+                "names absent from the configured current TeX source", result.stdout
+            )
+            self.assertIn("Demo.removedFromSource", result.stdout)
+
+    def test_check_harness_accepts_current_lean_target_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_project(
+                root,
+                lean_toolchain="leanprover/lean4:v4.33.0",
+                verso_ref="v4.33.0",
+                math_lint_option="weak.verso.blueprint.math.lint",
+                warn_line_length_option="weak.verso.code.warnLineLength",
+                strict_external_code=True,
+                strict_external_code_option="weak.verso.blueprint.externalCode.strictResolve",
+                lake_strict_external_code=True,
+            )
+            config_path = root / "verso-harness.toml"
+            config_path.write_text(
+                config_path.read_text(encoding="utf-8").replace(
+                    'default_chapters = ["DemoBlueprint/Chapters/SourceChapter.lean"]',
+                    'default_chapters = ["DemoBlueprint/Chapters/SourceChapter.lean"]\n'
+                    'unresolved_lean_targets = ["Demo.currentSourceDebt"]',
+                ),
+                encoding="utf-8",
+            )
+            write_file(
+                root / "blueprint" / "src" / "chapter" / "main.tex",
+                "\\lean{Demo.currentSourceDebt}\n",
+            )
+            result = run_check(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+
     def test_check_harness_rejects_wrapper_toolchain_override(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

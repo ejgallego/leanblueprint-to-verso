@@ -41,6 +41,8 @@ def main() -> int:
     paths = resolve_chapter_paths(project_root, args.paths)
     config = load_config(project_root)
     aliases = source_lean_label_aliases(project_root, config.tex_source_glob)
+    lean_target_aliases = dict(config.lt_lean_target_aliases)
+    unresolved_lean_targets = set(config.lt_unresolved_lean_targets)
 
     found = False
     for path in paths:
@@ -51,7 +53,13 @@ def main() -> int:
             found = True
             continue
         for block, tex in pairs:
-            score = score_pair(block, tex, source_aliases=aliases)
+            score = score_pair(
+                block,
+                tex,
+                source_aliases=aliases,
+                lean_target_aliases=lean_target_aliases,
+                unresolved_lean_targets=unresolved_lean_targets,
+            )
             if not score.extra_uses and not score.extra_lean and not score.extra_bprefs:
                 continue
             found = True
