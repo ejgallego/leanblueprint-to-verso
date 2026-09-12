@@ -116,6 +116,31 @@ fingerprint = "<64 lowercase hex characters from the freshness report>"
 reason = "Upstream metadata names a removed node; omit the dangling local edge."
 ```
 
+When a prose `\ref` names an obsolete label but the intended node exists under
+a current source label, keep the raw TeX witness unchanged and correct the
+translated `bpref`. Authorize that reviewed correction with a separate entry:
+
+```toml
+[[reference]]
+chapter = "MyBlueprint/Chapters/Main.lean"
+fingerprint = "<SHA-256 witness fingerprint from the freshness report>"
+source_label = "old-label"
+target_label = "current-label"
+reason = "The same lemma was relabeled upstream, but this prose reference was missed."
+```
+
+The source metadata audit applies this only to the exact reviewed witness in
+the named chapter. The old label must occur in its prose references and must
+no longer name an active source node; the corrected target must name an active
+source node and occur as a `bpref` in the adjacent translation. With explicit
+`lt.source_files`, nodes found only in inactive source files are not accepted.
+The reviewed witness must still occur in the chapter's current source, so fixing
+the upstream prose reference also expires the correction.
+Other references, dependency edges, and Lean attachments are still checked.
+Unused corrections fail the audit: remove or review the entry when the witness,
+source labels, or translated reference changes. This entry does not create a
+Blueprint alias or modify the TeX source.
+
 ## Triage Order For Low-Similarity Blocks
 
 1. shrink or split the witness to the exact source span

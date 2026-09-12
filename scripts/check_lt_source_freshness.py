@@ -73,9 +73,16 @@ class SourceLabelDeviation:
 
 
 @dataclass(frozen=True)
+class ReferenceDeviation(WitnessDeviation):
+    source_label: str
+    target_label: str
+
+
+@dataclass(frozen=True)
 class SourceDeviations:
     witnesses: tuple[WitnessDeviation, ...] = ()
     source_labels: tuple[SourceLabelDeviation, ...] = ()
+    references: tuple[ReferenceDeviation, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -189,6 +196,7 @@ def load_deviations(project_root: Path) -> SourceDeviations:
 
     raw_witnesses = data.get("witness", [])
     raw_source_labels = data.get("source_label", [])
+    raw_references = data.get("reference", [])
     if not isinstance(raw_witnesses, list) or not all(
         isinstance(item, dict) for item in raw_witnesses
     ):
@@ -197,21 +205,43 @@ def load_deviations(project_root: Path) -> SourceDeviations:
         isinstance(item, dict) for item in raw_source_labels
     ):
         raise SystemExit(f"{DEVIATIONS_FILENAME}: source_label must be an array of tables")
+    if not isinstance(raw_references, list) or not all(
+        isinstance(item, dict) for item in raw_references
+    ):
+        raise SystemExit(f"{DEVIATIONS_FILENAME}: reference must be an array of tables")
 
-    witnesses: list[WitnessDeviation] = []
-    for index, item in enumerate(raw_witnesses, start=1):
-        chapter = Path(require_nonempty_string(item, "chapter", f"witness[{index}]"))
-        fingerprint = require_nonempty_string(item, "fingerprint", f"witness[{index}]")
-        reason = require_nonempty_string(item, "reason", f"witness[{index}]")
-        if chapter.is_absolute():
+    def witness_fields(item: dict, context: str) -> WitnessDeviation:
+        chapter = Path(require_nonempty_string(item, "chapter", context))
+        fingerprint = require_nonempty_string(item, "fingerprint", context)
+        reason = require_nonempty_string(item, "reason", context)
+        if chapter.is_absolute() or ".." in chapter.parts:
             raise SystemExit(
-                f"{DEVIATIONS_FILENAME}: witness[{index}].chapter must be relative"
+                f"{DEVIATIONS_FILENAME}: {context}.chapter must be project-relative"
             )
         if not re.fullmatch(r"[0-9a-f]{64}", fingerprint):
             raise SystemExit(
-                f"{DEVIATIONS_FILENAME}: witness[{index}].fingerprint must be a SHA-256 hex digest"
+                f"{DEVIATIONS_FILENAME}: {context}.fingerprint must be a SHA-256 hex digest"
             )
-        witnesses.append(WitnessDeviation(chapter, fingerprint, reason))
+        return WitnessDeviation(chapter, fingerprint, reason)
+
+    witnesses = [
+        witness_fields(item, f"witness[{index}]")
+        for index, item in enumerate(raw_witnesses, start=1)
+    ]
+    references: list[ReferenceDeviation] = []
+    reference_keys: set[tuple[Path, str, str]] = set()
+    for index, item in enumerate(raw_references, start=1):
+        context = f"reference[{index}]"
+        witness = witness_fields(item, context)
+        source = require_nonempty_string(item, "source_label", context)
+        target = require_nonempty_string(item, "target_label", context)
+        key = (witness.chapter, witness.fingerprint, source)
+        if source == target or key in reference_keys:
+            raise SystemExit(f"{DEVIATIONS_FILENAME}: {context} is a no-op or duplicate correction")
+        reference_keys.add(key)
+        references.append(ReferenceDeviation(
+            witness.chapter, witness.fingerprint, witness.reason, source, target
+        ))
 
     source_labels: list[SourceLabelDeviation] = []
     for index, item in enumerate(raw_source_labels, start=1):
@@ -224,7 +254,7 @@ def load_deviations(project_root: Path) -> SourceDeviations:
             )
         source_labels.append(SourceLabelDeviation(source, label, reason))
 
-    return SourceDeviations(tuple(witnesses), tuple(source_labels))
+    return SourceDeviations(tuple(witnesses), tuple(source_labels), tuple(references))
 
 
 def source_nodes(text: str) -> tuple[SourceNode, ...]:
