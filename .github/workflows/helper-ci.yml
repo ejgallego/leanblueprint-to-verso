@@ -25,6 +25,7 @@ jobs:
         run: python3 -m py_compile scripts/*.py
       - name: Run helper tests
         run: |
+          python3 scripts/test_ensure_dependency_cache.py
           python3 scripts/test_bootstrap.py
           python3 scripts/test_start_new_port.py
           python3 scripts/test_check_harness.py
