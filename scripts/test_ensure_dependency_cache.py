@@ -170,6 +170,22 @@ class EnsureDependencyCacheTests(unittest.TestCase):
         self.assertIn("partial artifacts", gaps[0])
         self.assertIn("Mathlib.Partial", gaps[0])
 
+    def test_tolerates_missing_mathlib_umbrella_module_within_explicit_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_mathlib_manifest(root)
+            mathlib_dir = root / ".lake" / "packages" / "mathlib"
+            write_mathlib_module(mathlib_dir, "Mathlib")
+
+            gaps, warnings = ensure_dependency_cache.dependency_artifact_report(
+                root,
+                max_missing_mathlib_modules=1,
+            )
+
+        self.assertEqual(gaps, [])
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("Mathlib", warnings[0])
+
     def test_noops_when_manifest_has_no_guarded_dependency(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -50,8 +50,8 @@ def parse_args() -> argparse.Namespace:
         default=0,
         metavar="N",
         help=(
-            "Allow up to N non-umbrella Mathlib modules with no cached artifacts. "
-            "Partial artifact sets and Mathlib.lean are always rejected; default: 0."
+            "Allow up to N Mathlib modules with no cached artifacts. "
+            "Partial artifact sets are always rejected; default: 0."
         ),
     )
     return parser.parse_args()
@@ -222,7 +222,6 @@ def dependency_artifact_report(
             package_name == "mathlib"
             and fully_missing
             and not partially_missing
-            and "Mathlib" not in fully_missing
             and len(fully_missing) <= max_missing_mathlib_modules
         ):
             warnings.append(
