@@ -22,6 +22,23 @@ def write_mathlib_manifest(root: Path) -> None:
     (root / "lake-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
 
+def write_mathlib_module(
+    package_dir: Path,
+    module_name: str,
+    artifact_suffixes: tuple[str, ...] = (),
+) -> None:
+    relative_path = Path(*module_name.split(".")).with_suffix(".lean")
+    source_path = package_dir / relative_path
+    source_path.parent.mkdir(parents=True, exist_ok=True)
+    source_path.write_text("", encoding="utf-8")
+    for suffix in artifact_suffixes:
+        artifact_path = (
+            package_dir / ".lake" / "build" / "lib" / "lean" / relative_path
+        ).with_suffix(suffix)
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        artifact_path.write_text("", encoding="utf-8")
+
+
 def write_harness_config(
     root: Path,
     formalization_path: str = "Demo",
@@ -62,27 +79,112 @@ class EnsureDependencyCacheTests(unittest.TestCase):
             root = Path(tmp)
             write_mathlib_manifest(root)
             mathlib_dir = root / ".lake" / "packages" / "mathlib"
-            (mathlib_dir / "Mathlib").mkdir(parents=True)
-            (mathlib_dir / "Mathlib" / "OnlySource.lean").write_text("", encoding="utf-8")
+            write_mathlib_module(mathlib_dir, "Mathlib.OnlySource")
             gaps = ensure_dependency_cache.dependency_artifact_gaps(root)
         self.assertEqual(
-            gaps,
-            ["mathlib: cached artifacts incomplete (.olean 0/1, .trace 0/1, .olean.hash 0/1)"],
+            len(gaps),
+            1,
         )
+        self.assertIn("cached artifacts incomplete", gaps[0])
+        self.assertIn("Mathlib.OnlySource", gaps[0])
 
     def test_accepts_matching_mathlib_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_mathlib_manifest(root)
             mathlib_dir = root / ".lake" / "packages" / "mathlib"
-            (mathlib_dir / "Mathlib").mkdir(parents=True)
-            (mathlib_dir / "Mathlib" / "Ready.lean").write_text("", encoding="utf-8")
-            artifact_dir = mathlib_dir / ".lake" / "build" / "lib" / "lean" / "Mathlib"
-            artifact_dir.mkdir(parents=True)
-            for suffix in ensure_dependency_cache.REQUIRED_ARTIFACT_SUFFIXES:
-                (artifact_dir / f"Ready{suffix}").write_text("", encoding="utf-8")
+            write_mathlib_module(
+                mathlib_dir,
+                "Mathlib.Ready",
+                ensure_dependency_cache.REQUIRED_ARTIFACT_SUFFIXES,
+            )
             gaps = ensure_dependency_cache.dependency_artifact_gaps(root)
         self.assertEqual(gaps, [])
+
+    def test_tolerates_two_fully_missing_mathlib_modules_when_requested(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_mathlib_manifest(root)
+            mathlib_dir = root / ".lake" / "packages" / "mathlib"
+            write_mathlib_module(
+                mathlib_dir,
+                "Mathlib.Ready",
+                ensure_dependency_cache.REQUIRED_ARTIFACT_SUFFIXES,
+            )
+            write_mathlib_module(mathlib_dir, "Mathlib.MissingOne")
+            write_mathlib_module(mathlib_dir, "Mathlib.MissingTwo")
+
+            gaps, warnings = ensure_dependency_cache.dependency_artifact_report(
+                root,
+                max_missing_mathlib_modules=2,
+            )
+
+        self.assertEqual(gaps, [])
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("Mathlib.MissingOne", warnings[0])
+        self.assertIn("Mathlib.MissingTwo", warnings[0])
+
+    def test_does_not_tolerate_more_missing_mathlib_modules_than_requested(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_mathlib_manifest(root)
+            mathlib_dir = root / ".lake" / "packages" / "mathlib"
+            for module_name in (
+                "Mathlib.Ready",
+                "Mathlib.MissingOne",
+                "Mathlib.MissingTwo",
+                "Mathlib.MissingThree",
+            ):
+                suffixes = (
+                    ensure_dependency_cache.REQUIRED_ARTIFACT_SUFFIXES
+                    if module_name == "Mathlib.Ready"
+                    else ()
+                )
+                write_mathlib_module(mathlib_dir, module_name, suffixes)
+
+            gaps = ensure_dependency_cache.dependency_artifact_gaps(
+                root,
+                max_missing_mathlib_modules=2,
+            )
+
+        self.assertEqual(len(gaps), 1)
+        self.assertIn("Mathlib.MissingThree", gaps[0])
+
+    def test_does_not_tolerate_partial_mathlib_artifact_sets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_mathlib_manifest(root)
+            mathlib_dir = root / ".lake" / "packages" / "mathlib"
+            write_mathlib_module(
+                mathlib_dir,
+                "Mathlib.Partial",
+                (".olean", ".trace"),
+            )
+
+            gaps = ensure_dependency_cache.dependency_artifact_gaps(
+                root,
+                max_missing_mathlib_modules=2,
+            )
+
+        self.assertEqual(len(gaps), 1)
+        self.assertIn("partial artifacts", gaps[0])
+        self.assertIn("Mathlib.Partial", gaps[0])
+
+    def test_tolerates_missing_mathlib_umbrella_module_within_explicit_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_mathlib_manifest(root)
+            mathlib_dir = root / ".lake" / "packages" / "mathlib"
+            write_mathlib_module(mathlib_dir, "Mathlib")
+
+            gaps, warnings = ensure_dependency_cache.dependency_artifact_report(
+                root,
+                max_missing_mathlib_modules=1,
+            )
+
+        self.assertEqual(gaps, [])
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("Mathlib", warnings[0])
 
     def test_noops_when_manifest_has_no_guarded_dependency(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -234,6 +336,114 @@ class EnsureDependencyCacheTests(unittest.TestCase):
                 root_toolchain.read_text(encoding="utf-8"),
                 "leanprover/lean4:v4.33.0-rc1\n",
             )
+
+    def test_main_continues_after_cache_misses_within_explicit_tolerance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_config(root)
+            write_mathlib_manifest(root)
+            mathlib_dir = root / ".lake" / "packages" / "mathlib"
+            write_mathlib_module(
+                mathlib_dir,
+                "Mathlib.Ready",
+                ensure_dependency_cache.REQUIRED_ARTIFACT_SUFFIXES,
+            )
+            write_mathlib_module(mathlib_dir, "Mathlib.MissingOne")
+            write_mathlib_module(mathlib_dir, "Mathlib.MissingTwo")
+            argv = [
+                "ensure_dependency_cache.py",
+                "--project-root",
+                str(root),
+                "--warm-cache",
+                "--max-missing-mathlib-modules",
+                "2",
+            ]
+            with (
+                mock.patch.object(sys, "argv", argv),
+                mock.patch.object(
+                    ensure_dependency_cache,
+                    "sync_project_toolchain_selection",
+                    return_value=[],
+                ),
+                mock.patch.object(ensure_dependency_cache, "warm_cache", return_value=1),
+                mock.patch.object(
+                    ensure_dependency_cache,
+                    "materialize_cached_lean_artifacts",
+                    return_value=[],
+                ),
+            ):
+                status = ensure_dependency_cache.main()
+
+        self.assertEqual(status, 0)
+
+    def test_main_keeps_two_missing_modules_strict_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_config(root)
+            write_mathlib_manifest(root)
+            mathlib_dir = root / ".lake" / "packages" / "mathlib"
+            write_mathlib_module(mathlib_dir, "Mathlib.MissingOne")
+            write_mathlib_module(mathlib_dir, "Mathlib.MissingTwo")
+            argv = [
+                "ensure_dependency_cache.py",
+                "--project-root",
+                str(root),
+                "--warm-cache",
+            ]
+            with (
+                mock.patch.object(sys, "argv", argv),
+                mock.patch.object(
+                    ensure_dependency_cache,
+                    "sync_project_toolchain_selection",
+                    return_value=[],
+                ),
+                mock.patch.object(ensure_dependency_cache, "warm_cache", return_value=1),
+                mock.patch.object(
+                    ensure_dependency_cache,
+                    "materialize_cached_lean_artifacts",
+                    return_value=[],
+                ),
+            ):
+                status = ensure_dependency_cache.main()
+
+        self.assertEqual(status, 1)
+
+    def test_main_still_fails_cache_get_error_without_tolerated_gaps(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_config(root)
+            write_mathlib_manifest(root)
+            mathlib_dir = root / ".lake" / "packages" / "mathlib"
+            write_mathlib_module(
+                mathlib_dir,
+                "Mathlib.Ready",
+                ensure_dependency_cache.REQUIRED_ARTIFACT_SUFFIXES,
+            )
+            argv = [
+                "ensure_dependency_cache.py",
+                "--project-root",
+                str(root),
+                "--warm-cache",
+                "--max-missing-mathlib-modules",
+                "2",
+            ]
+            with (
+                mock.patch.object(sys, "argv", argv),
+                mock.patch.object(
+                    ensure_dependency_cache,
+                    "sync_project_toolchain_selection",
+                    return_value=[],
+                ),
+                mock.patch.object(ensure_dependency_cache, "warm_cache", return_value=1),
+                mock.patch.object(
+                    ensure_dependency_cache,
+                    "materialize_cached_lean_artifacts",
+                    return_value=[],
+                ),
+            ):
+                status = ensure_dependency_cache.main()
+
+        self.assertEqual(status, 1)
 
     def test_materializes_cached_lean_artifacts_from_dependency_trace(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
