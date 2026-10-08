@@ -114,6 +114,12 @@ incomplete, so a site smoke cannot silently compile mathlib. Focused
 Generated `scripts/ci-pages.sh` runs an executable project-owned
 `scripts/ci-pre-build.sh` hook before cache warming when a consumer needs local
 CI setup before the standard build.
+It runs an executable project-owned `scripts/ci-post-build.sh` hook after
+generated-site validation for project-specific checks such as `lake test`.
+Bootstrap materializes the post-build hook, and both hooks remain project-owned
+during CI refreshes. Set `harness.max_missing_mathlib_modules` only for an explicitly
+reviewed cache gap; the default is zero, and partial cache artifacts always
+fail the guard.
 Its warning filter flushes every visible line so long Lean builds continue to
 show progress while docstring noise is suppressed.
 

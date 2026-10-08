@@ -82,6 +82,8 @@ class CompletionStatus:
     source_missing: int = 0
     source_deviations: int = 0
     source_unresolved_lean: int = 0
+    unsupported_proof_lean: int = 0
+    unsupported_proof_lean_targets: tuple[str, ...] = ()
     reviewed_reference_debt: int = 0
     reviewed_reference_targets: tuple[str, ...] = ()
 
@@ -271,6 +273,18 @@ def classify_direct_port(
     )
     label_issues = label_issue_count(scores)
     source_unresolved_lean = sum(len(score.unresolved_tex_lean) for score in scores)
+    unsupported_proof_lean = sum(
+        len(score.unsupported_proof_lean) for score in scores
+    )
+    unsupported_proof_lean_targets = tuple(
+        sorted(
+            {
+                target
+                for score in scores
+                for target in score.unsupported_proof_lean
+            }
+        )
+    )
 
     source_stale = source_freshness.stale_witness_count if source_freshness else 0
     source_missing = source_freshness.missing_source_label_count if source_freshness else 0
@@ -298,6 +312,8 @@ def classify_direct_port(
             source_missing=source_missing,
             source_deviations=source_deviations,
             source_unresolved_lean=source_unresolved_lean,
+            unsupported_proof_lean=unsupported_proof_lean,
+            unsupported_proof_lean_targets=unsupported_proof_lean_targets,
             reviewed_reference_debt=len(reviewed_references),
             reviewed_reference_targets=reviewed_reference_targets,
         )
@@ -325,6 +341,8 @@ def classify_direct_port(
             reasons=tuple(paired_reasons),
             source_deviations=source_deviations,
             source_unresolved_lean=source_unresolved_lean,
+            unsupported_proof_lean=unsupported_proof_lean,
+            unsupported_proof_lean_targets=unsupported_proof_lean_targets,
             reviewed_reference_debt=len(reviewed_references),
             reviewed_reference_targets=reviewed_reference_targets,
         )
@@ -348,6 +366,8 @@ def classify_direct_port(
             reasons=tuple(reasons),
             source_deviations=source_deviations,
             source_unresolved_lean=source_unresolved_lean,
+            unsupported_proof_lean=unsupported_proof_lean,
+            unsupported_proof_lean_targets=unsupported_proof_lean_targets,
             reviewed_reference_debt=len(reviewed_references),
             reviewed_reference_targets=reviewed_reference_targets,
         )
@@ -368,6 +388,8 @@ def classify_direct_port(
             reasons=("build not checked; rerun with --build for final completion",),
             source_deviations=source_deviations,
             source_unresolved_lean=source_unresolved_lean,
+            unsupported_proof_lean=unsupported_proof_lean,
+            unsupported_proof_lean_targets=unsupported_proof_lean_targets,
             reviewed_reference_debt=len(reviewed_references),
             reviewed_reference_targets=reviewed_reference_targets,
         )
@@ -395,6 +417,8 @@ def classify_direct_port(
         reasons=build_reasons,
         source_deviations=source_deviations,
         source_unresolved_lean=source_unresolved_lean,
+        unsupported_proof_lean=unsupported_proof_lean,
+        unsupported_proof_lean_targets=unsupported_proof_lean_targets,
         reviewed_reference_debt=len(reviewed_references),
         reviewed_reference_targets=reviewed_reference_targets,
     )
@@ -452,6 +476,7 @@ def print_status(status: CompletionStatus) -> None:
         f"source_stale={status.source_stale} source_missing={status.source_missing} "
         f"source_deviations={status.source_deviations} "
         f"source_unresolved_lean={status.source_unresolved_lean} "
+        f"unsupported_proof_lean={status.unsupported_proof_lean} "
         f"reviewed_reference_debt={status.reviewed_reference_debt}"
     )
     print(f"  metrics: {details}")
@@ -459,6 +484,11 @@ def print_status(status: CompletionStatus) -> None:
         print(
             "  reviewed reference targets: "
             + ", ".join(status.reviewed_reference_targets)
+        )
+    if status.unsupported_proof_lean_targets:
+        print(
+            "  unsupported proof attachment targets: "
+            + ", ".join(status.unsupported_proof_lean_targets)
         )
     if status.build_checked:
         build_label = "ok" if status.build_ok else "needs-attention"

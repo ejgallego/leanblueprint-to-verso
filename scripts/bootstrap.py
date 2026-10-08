@@ -168,6 +168,7 @@ def main() -> int:
         "__VERSO_STRICT_EXTERNAL_CODE_OPTION__": strict_external_code_option,
         "__VERSO_WARN_LINE_LENGTH_OPTION__": warn_line_length_option,
         "__STRICT_EXTERNAL_CODE__": "true",
+        "__MAX_MISSING_MATHLIB_MODULES_OPTION__": "",
         "__PAGES_WORKFLOW_REPO__": pages_workflow_repo,
         "__PAGES_WORKFLOW_REF__": pages_workflow_ref,
         "__BLUEPRINT_MAIN__": "BlueprintMain",
@@ -191,7 +192,7 @@ def main() -> int:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(rendered, encoding="utf-8")
 
-        if target.name == "ci-pages.sh":
+        if target.name in {"ci-pages.sh", "ci-post-build.sh"}:
             ensure_executable(target)
 
         written.append(relative_target)

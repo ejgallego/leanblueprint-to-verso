@@ -32,6 +32,7 @@ def write_harness_project(
     strict_external_code: bool,
     strict_external_code_option: str,
     lake_strict_external_code: bool,
+    max_missing_mathlib_modules: int = 0,
     formalization_toolchain: str | None = None,
     wrapper_toolchain_override: str | None = None,
 ) -> None:
@@ -40,6 +41,7 @@ def write_harness_project(
         'native_warnings = false',
         'docstring_warnings = false',
         f"strict_external_code = {'true' if strict_external_code else 'false'}",
+        f"max_missing_mathlib_modules = {max_missing_mathlib_modules}",
     ]
     if wrapper_toolchain_override is not None:
         harness_lines.append(
@@ -95,15 +97,24 @@ def write_harness_project(
         root / "DemoBlueprint" / "Chapters" / "SourceChapter.lean",
         '#doc (Manual) "Source Chapter" =>\n\nAlpha.\n',
     )
+    cache_tolerance_option = (
+        f" --max-missing-mathlib-modules {max_missing_mathlib_modules}"
+        if max_missing_mathlib_modules
+        else ""
+    )
     write_file(
         root / "scripts" / "ci-pages.sh",
         "\n".join(
             [
                 "#!/usr/bin/env bash",
                 "python3 tools/verso-harness/scripts/status_completion.py --project-root . --require-metadata-clean",
-                "python3 tools/verso-harness/scripts/ensure_dependency_cache.py --project-root . --warm-cache",
+                "python3 tools/verso-harness/scripts/ensure_dependency_cache.py --project-root . --warm-cache"
+                + cache_tolerance_option,
                 "lake exe vbp build --output _out/site",
+                "python3 tools/verso-harness/scripts/ensure_dependency_cache.py --project-root ."
+                + cache_tolerance_option,
                 "python3 tools/verso-harness/scripts/check_generated_site.py --project-root . --site-dir _out/site/html-multi",
+                "scripts/ci-post-build.sh",
                 "exit 0",
             ]
         )
@@ -139,6 +150,36 @@ def run_check(project_root: Path) -> subprocess.CompletedProcess[str]:
 
 
 class CheckHarnessTests(unittest.TestCase):
+    def test_check_harness_enforces_declared_cache_tolerance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_project(
+                root,
+                lean_toolchain="leanprover/lean4:v4.29.0",
+                verso_ref="v4.29.0",
+                math_lint_option="weak.verso.blueprint.math.lint",
+                warn_line_length_option="weak.verso.code.warnLineLength",
+                strict_external_code=True,
+                strict_external_code_option="weak.verso.blueprint.externalCode.strictResolve",
+                lake_strict_external_code=True,
+                max_missing_mathlib_modules=2,
+            )
+            result = run_check(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+
+            script_path = root / "scripts" / "ci-pages.sh"
+            script_path.write_text(
+                script_path.read_text(encoding="utf-8").replace(
+                    "--max-missing-mathlib-modules 2\n",
+                    "--max-missing-mathlib-modules 1\n",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+            result = run_check(root)
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("both dependency cache guards", result.stdout)
+
     def test_check_harness_rejects_stale_lean_target_policy(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

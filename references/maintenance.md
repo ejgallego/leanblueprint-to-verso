@@ -49,6 +49,7 @@ Project-owned after bootstrap:
 - the root blueprint module
 - `TeXPrelude.lean`
 - chapter files
+- `scripts/ci-pre-build.sh` and `scripts/ci-post-build.sh`
 
 Helper-owned for automated refresh:
 
@@ -65,6 +66,16 @@ The generated `scripts/ci-pages.sh` invokes
 entry point with `lake build` or invoke the legacy `lake lean` generator path.
 It first requires all selected chapters to be `metadata-clean` or `done` and
 requires source freshness checks to have no errors.
+It can run the optional project-owned `ci-pre-build.sh` before cache warming
+and `ci-post-build.sh` after generated-site validation. Put project-specific
+tests in the post-build hook; bootstrap creates that hook and `update_ci.py`
+preserves it and any host-created pre-build hook.
+
+The cache guard rejects incomplete dependency caches before and after site
+generation. `harness.max_missing_mathlib_modules` defaults to zero and may
+allow a reviewed number of wholly missing Mathlib module caches. Partial
+artifact sets always fail, and the configured limit is passed to both guard
+calls.
 
 The generated README is a starting point for the consumer repo and remains
 project-owned after bootstrap. The helper should not rewrite it automatically

@@ -43,6 +43,12 @@ Faithfulness`) are accepted aliases for the same workflow.
   for LT. First pair the text with a source witness, then tighten
   `(lean := "...")`, `(uses := ...)`, inline `{uses "..."}[]` where it is
   natural in prose, and `{bpref "..."}[]`.
+- Current Verso Blueprint `:::proof` blocks do not accept `(lean := ...)`.
+  Preserve source proof-side `\lean{...}` names in the adjacent TeX witness;
+  the audits report them as unsupported proof-attachment debt instead of
+  requiring them in the proof header. A local `lean :=` on a proof remains a
+  metadata error. Statement attachments, `uses`, and witness freshness remain
+  fully checked.
 - Treat dependency metadata such as `uses_origin`, `uses_intent`, inline
   `origin` / `intent`, and `autoDeps` as curation or generated-dependency
   metadata, not as part of the first LT port. Source TeX `\uses{...}` edges

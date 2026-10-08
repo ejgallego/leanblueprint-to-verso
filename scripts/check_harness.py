@@ -42,6 +42,8 @@ CI_METADATA_GATE_PATTERN = re.compile(
     r"\bstatus_completion\.py[^\n]*--require-metadata-clean"
 )
 CI_PRE_BUILD_HOOK_PATTERN = re.compile(r"scripts/ci-pre-build\.sh")
+CI_POST_BUILD_HOOK_PATTERN = re.compile(r"^\s*scripts/ci-post-build\.sh\s*$", re.M)
+CI_CACHE_TOLERANCE_PATTERN = re.compile(r"--max-missing-mathlib-modules\s+(\S+)")
 
 
 def parse_args() -> argparse.Namespace:
@@ -256,6 +258,47 @@ def main() -> int:
             mismatches.append(
                 "scripts/ci-pages.sh must validate generated site artifacts with "
                 "check_generated_site.py; run update_ci.py to refresh helper-owned CI files"
+            )
+        else:
+            generated_site_match = CI_GENERATED_SITE_CHECK_PATTERN.search(script_text)
+            post_build_hook_match = CI_POST_BUILD_HOOK_PATTERN.search(script_text)
+            if post_build_hook_match is None:
+                mismatches.append(
+                    "scripts/ci-pages.sh must dispatch scripts/ci-post-build.sh after "
+                    "generated-site validation; run update_ci.py to refresh helper-owned CI files"
+                )
+            elif post_build_hook_match.start() < generated_site_match.start():
+                mismatches.append(
+                    "scripts/ci-pages.sh must run scripts/ci-post-build.sh after "
+                    "generated-site validation; run update_ci.py to refresh helper-owned CI files"
+                )
+
+        cache_guard_lines = [
+            line for line in script_text.splitlines() if CI_CACHE_GUARD_PATTERN.search(line)
+        ]
+        tolerance_values = [
+            match.group(1)
+            for line in cache_guard_lines
+            if (match := CI_CACHE_TOLERANCE_PATTERN.search(line)) is not None
+        ]
+        expected_tolerance = (
+            config.max_missing_mathlib_modules if config is not None else 0
+        )
+        if expected_tolerance:
+            if len(cache_guard_lines) != 2 or tolerance_values != [
+                str(expected_tolerance),
+                str(expected_tolerance),
+            ]:
+                mismatches.append(
+                    "scripts/ci-pages.sh must pass the configured "
+                    "--max-missing-mathlib-modules value to both dependency cache guards; "
+                    "run update_ci.py to refresh helper-owned CI files"
+                )
+        elif tolerance_values:
+            mismatches.append(
+                "scripts/ci-pages.sh must not tolerate missing mathlib modules when "
+                "harness.max_missing_mathlib_modules is zero; run update_ci.py to refresh "
+                "helper-owned CI files"
             )
 
     if missing or mismatches or placeholder_paths or not script_executable:

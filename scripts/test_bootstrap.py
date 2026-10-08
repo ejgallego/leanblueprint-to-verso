@@ -76,6 +76,10 @@ class BootstrapTests(unittest.TestCase):
                 ci_pages_text.index('status_completion.py --project-root . --require-metadata-clean'),
                 ci_pages_text.index('ensure_dependency_cache.py --project-root . --warm-cache'),
             )
+            post_build_hook = root / 'scripts' / 'ci-post-build.sh'
+            self.assertTrue(post_build_hook.exists())
+            self.assertTrue(post_build_hook.stat().st_mode & 0o111)
+            self.assertIn('project-owned checks', post_build_hook.read_text(encoding='utf-8'))
             workflow_text = (root / '.github' / 'workflows' / 'blueprint.yml').read_text(
                 encoding='utf-8'
             )
@@ -102,6 +106,7 @@ class BootstrapTests(unittest.TestCase):
             self.assertIn('native_warnings = false', config_text)
             self.assertIn('docstring_warnings = false', config_text)
             self.assertIn('strict_external_code = true', config_text)
+            self.assertIn('max_missing_mathlib_modules = 0', config_text)
 
             check = subprocess.run(
                 [

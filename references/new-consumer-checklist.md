@@ -46,6 +46,7 @@ proof = "proof"
 [harness]
 native_warnings = false
 strict_external_code = true
+max_missing_mathlib_modules = 0
 ```
 
 Use the actual relative TeX source locator here. Some projects use a single
@@ -59,11 +60,17 @@ chapter files under `chapter_root`, then list those files in
 `lt.default_chapters` before starting LT work.
 Do not add local-only maintenance or status chapters under `chapter_root`; if a
 file lives there as a chapter, it should correspond to upstream TeX source.
-The `[harness]` booleans are the shared warning policy surface. Keep
+The `[harness]` warning booleans are the shared warning policy surface. Keep
 `harness.strict_external_code` aligned with the generated `lakefile.lean`
 strict-resolve lean option, and use
 `harness.native_warnings` to control the default `lt_audit.py` warning-fail
-mode for focused chapter builds.
+mode for focused chapter builds. Keep `harness.max_missing_mathlib_modules`
+at zero unless a reviewed cache gap requires a small, explicit allowance;
+partial Mathlib cache artifacts remain errors.
+
+Bootstrap creates an executable project-owned `scripts/ci-post-build.sh` hook.
+Put consumer-specific tests there; it runs after generated-site validation and
+survives `update_ci.py` refreshes.
 
 Use explicit chapter paths. Do not rely on helper-side discovery heuristics.
 For new ports, do not choose the Lean toolchain independently: the upstream

@@ -19,3 +19,4 @@ proof = "proof"
 native_warnings = false
 docstring_warnings = false
 strict_external_code = true
+max_missing_mathlib_modules = 0

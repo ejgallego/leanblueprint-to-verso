@@ -96,6 +96,13 @@ class UpdateCiTests(unittest.TestCase):
             self.assertNotIn("lake build blueprint-gen", script_text)
             self.assertNotIn("lake lean", script_text)
             self.assertIn("check_generated_site.py --project-root . --site-dir _out/site/html-multi", script_text)
+            self.assertIn("scripts/ci-post-build.sh", script_text)
+            self.assertLess(
+                script_text.index("check_generated_site.py --project-root . --site-dir _out/site/html-multi"),
+                script_text.index("scripts/ci-post-build.sh\n"),
+            )
+            self.assertNotIn("--max-missing-mathlib-modules", script_text)
+            self.assertFalse((project_root / "scripts" / "ci-post-build.sh").exists())
             self.assertNotIn("blueprint-preview-manifest.json", script_text)
             self.assertNotIn("test -f _out/site/html-multi/-verso-data", script_text)
             filter_path = project_root / "scripts" / "filter_docstring_warnings.py"
@@ -125,9 +132,13 @@ class UpdateCiTests(unittest.TestCase):
                 + "[harness]\n"
                 + "native_warnings = false\n"
                 + "docstring_warnings = false\n"
-                + "strict_external_code = true\n",
+                + "strict_external_code = true\n"
+                + "max_missing_mathlib_modules = 2\n",
                 encoding="utf-8",
             )
+            project_hook = project_root / "scripts" / "ci-post-build.sh"
+            project_hook.parent.mkdir(parents=True)
+            project_hook.write_text("#!/usr/bin/env bash\n# host-specific checks\n", encoding="utf-8")
             update_result = subprocess.run(
                 [
                     sys.executable,
@@ -141,6 +152,18 @@ class UpdateCiTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(update_result.returncode, 0, msg=update_result.stdout + update_result.stderr)
+
+            script_path = project_root / "scripts" / "ci-pages.sh"
+            script_text = script_path.read_text(encoding="utf-8")
+            self.assertEqual(
+                script_text.count("--max-missing-mathlib-modules 2"),
+                2,
+                msg=script_text,
+            )
+            self.assertEqual(
+                project_hook.read_text(encoding="utf-8"),
+                "#!/usr/bin/env bash\n# host-specific checks\n",
+            )
 
             filter_path = project_root / "scripts" / "filter_docstring_warnings.py"
             sample = textwrap.dedent(

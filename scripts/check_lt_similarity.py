@@ -48,6 +48,7 @@ class PairScore:
     verso_lean: set[str]
     tex_lean: set[str]
     unresolved_tex_lean: set[str]
+    unsupported_proof_lean: set[str]
     tex_labels: set[str]
     tex_refs: set[str]
     tex_env_kind: str | None
@@ -479,7 +480,7 @@ def extract_verso_env_kind(header: str, kind: str) -> str | None:
         return "theorem"
     if stripped.startswith(":::definition "):
         return "definition"
-    if stripped.startswith(":::proof "):
+    if re.match(r"^:::proof(?:\s|$)", stripped):
         return "proof"
     return None
 
@@ -517,11 +518,17 @@ def score_pair(
         extract_tex_refs(tex_body), verso_bprefs | verso_refs, aliases
     )
     raw_tex_lean = extract_tex_lean(tex_body)
-    unresolved_tex_lean = raw_tex_lean & (unresolved_lean_targets or set())
+    unsupported_proof_lean = (
+        raw_tex_lean
+        if extract_verso_env_kind(block.header, block.kind) == "proof"
+        else set()
+    )
+    supported_tex_lean = raw_tex_lean - unsupported_proof_lean
+    unresolved_tex_lean = supported_tex_lean & (unresolved_lean_targets or set())
     target_aliases = lean_target_aliases or {}
     tex_lean = {
         target_aliases.get(target, target)
-        for target in raw_tex_lean - unresolved_tex_lean
+        for target in supported_tex_lean - unresolved_tex_lean
     }
     return PairScore(
         block=block,
@@ -538,6 +545,7 @@ def score_pair(
         verso_lean=extract_verso_lean(block.header),
         tex_lean=tex_lean,
         unresolved_tex_lean=unresolved_tex_lean,
+        unsupported_proof_lean=unsupported_proof_lean,
         tex_labels=tex_labels,
         tex_refs=tex_refs,
         tex_env_kind=extract_tex_env_kind(tex_body),
@@ -572,6 +580,12 @@ def summarize_file(
     ref_review_pairs = [score for score in scores if score.ref_hint_count > 0]
     placeholder_count = sum(len(score.placeholder_lean_attachments) for score in scores)
     unresolved_lean_count = sum(len(score.unresolved_tex_lean) for score in scores)
+    unsupported_proof_lean_count = sum(
+        len(score.unsupported_proof_lean) for score in scores
+    )
+    unsupported_proof_pairs = [
+        score for score in scores if score.unsupported_proof_lean
+    ]
 
     lines = [
         f"{path}: pairs={len(scores)} avg={statistics.mean(primary_values):.3f} "
@@ -579,6 +593,7 @@ def summarize_file(
         f"warn_below={warn_below:.2f} low={len(low)} drift={len(exact_drift_pairs)} "
         f"pure_metadata={len(pure_metadata_pairs)} placeholder_lean={placeholder_count} "
         f"source_unresolved_lean={unresolved_lean_count} "
+        f"unsupported_proof_lean={unsupported_proof_lean_count} "
         f"reground={len(reground_pairs)} witness={len(witness_pairs)} "
         f"ref_review={len(ref_review_pairs)}"
     ]
@@ -709,6 +724,14 @@ def summarize_file(
                 f"  line {score.block.start_line} {kind}: "
                 + "; ".join(review_bits)
                 + f" text={score.block.preview()}"
+            )
+
+    if unsupported_proof_pairs:
+        lines.append("- unsupported-proof-lean:")
+        for score in unsupported_proof_pairs[: min(5, top)]:
+            lines.append(
+                f"  line {score.block.start_line} proof: "
+                f"targets={sorted(score.unsupported_proof_lean)}"
             )
 
     return lines
