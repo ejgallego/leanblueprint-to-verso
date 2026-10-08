@@ -116,6 +116,25 @@ fingerprint = "<64 lowercase hex characters from the freshness report>"
 reason = "Upstream metadata names a removed node; omit the dangling local edge."
 ```
 
+For a reviewed TeX navigation target that currently has no linkable local
+Verso anchor, record a narrowly scoped reference exception:
+
+```toml
+[[reference]]
+chapter = "MyBlueprint/Chapters/Main.lean"
+target = "thm:upstream-target"
+fingerprint = "<SHA-256 of this adjacent tex witness body>"
+reason = "The source target has no linkable anchor in this Verso release."
+```
+
+The exception applies only to that target in that chapter and witness, while it
+remains an unresolved reference hint and the pair has no other pure metadata
+drift. It does not suppress uses, Lean attachments, labels, witness freshness,
+pairing, or similarity findings. An unused, resolved, or edited witness makes
+the exception stale and fails the freshness audit. Completion status prints
+the accepted targets and their count so a metadata-clean or built chapter still
+shows this reviewed navigation debt.
+
 ## Triage Order For Low-Similarity Blocks
 
 1. shrink or split the witness to the exact source span

@@ -17,6 +17,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import status_completion  # noqa: E402
+from check_lt_source_freshness import witness_fingerprint  # noqa: E402
 from lt_audit import StepResult  # noqa: E402
 
 
@@ -263,6 +264,137 @@ class StatusCompletionTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
             self.assertIn("source_freshness_errors: 1", result.stdout)
             self.assertIn("metadata_clean: no", result.stdout)
+
+    def test_require_metadata_clean_reports_reviewed_reference_debt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = Path("DemoBlueprint/Chapters/Main.lean")
+            witness = r"This named theorem \ref{thm:omitted} applies."
+            write_file(
+                root / "verso-harness.toml",
+                '\n'.join(
+                    [
+                        'package_name = "DemoBlueprint"',
+                        'blueprint_main = "BlueprintMain"',
+                        'formalization_path = "Demo"',
+                        'chapter_root = "DemoBlueprint/Chapters"',
+                        'tex_source_glob = "blueprint/src/chapter/main.tex"',
+                        '',
+                        '[lt]',
+                        f'default_chapters = ["{chapter}"]',
+                        '',
+                    ]
+                ),
+            )
+            fence = chr(96) * 3
+            write_file(
+                root / chapter,
+                f'#doc (Manual) "Main" =>\n\nThis named theorem applies.\n{fence}tex\n{witness}\n{fence}\n',
+            )
+            write_file(root / "blueprint/src/chapter/main.tex", witness + "\n")
+            write_file(
+                root / "lt-source-deviations.toml",
+                '\n'.join(
+                    [
+                        'version = 1',
+                        '',
+                        '[[reference]]',
+                        f'chapter = "{chapter}"',
+                        'target = "thm:omitted"',
+                        f'fingerprint = "{witness_fingerprint(witness)}"',
+                        'reason = "The upstream target has no linkable Verso anchor."',
+                    ]
+                ),
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                    "--require-metadata-clean",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("[metadata-clean] DemoBlueprint/Chapters/Main.lean", result.stdout)
+            self.assertIn("reviewed_reference_debt=1", result.stdout)
+            self.assertIn("reviewed reference targets: thm:omitted", result.stdout)
+
+    def test_reviewed_reference_does_not_mask_hard_metadata_or_similarity_debt(self) -> None:
+        for verse, tex, expected_state in (
+            (
+                "This named theorem applies.",
+                r"This named theorem \ref{thm:omitted} applies. \uses{Dependency.target}",
+                "lt-audited",
+            ),
+            (
+                "Completely unrelated wording.",
+                r"This named theorem \ref{thm:omitted} applies.",
+                "paired",
+            ),
+        ):
+            with self.subTest(expected_state=expected_state), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                chapter = Path("DemoBlueprint/Chapters/Main.lean")
+                write_file(
+                    root / "verso-harness.toml",
+                    '\n'.join(
+                        [
+                            'package_name = "DemoBlueprint"',
+                            'blueprint_main = "BlueprintMain"',
+                            'formalization_path = "Demo"',
+                            'chapter_root = "DemoBlueprint/Chapters"',
+                            'tex_source_glob = "blueprint/src/chapter/main.tex"',
+                            '',
+                            '[lt]',
+                            f'default_chapters = ["{chapter}"]',
+                            '',
+                        ]
+                    ),
+                )
+                fence = chr(96) * 3
+                write_file(
+                    root / chapter,
+                    f'#doc (Manual) "Main" =>\n\n{verse}\n{fence}tex\n{tex}\n{fence}\n',
+                )
+                write_file(root / "blueprint/src/chapter/main.tex", tex + "\n")
+                write_file(
+                    root / "lt-source-deviations.toml",
+                    '\n'.join(
+                        [
+                            'version = 1',
+                            '',
+                            '[[reference]]',
+                            f'chapter = "{chapter}"',
+                            'target = "thm:omitted"',
+                            f'fingerprint = "{witness_fingerprint(tex)}"',
+                            'reason = "The upstream target has no linkable Verso anchor."',
+                        ]
+                    ),
+                )
+
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(SCRIPT_DIR / "status_completion.py"),
+                        "--project-root",
+                        str(root),
+                        "--require-metadata-clean",
+                    ],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+
+                self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+                self.assertIn(f"[{expected_state}] {chapter}", result.stdout)
 
     def test_status_completion_can_require_build_clean_done_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -46,6 +46,25 @@ class SourceFreshnessTests(unittest.TestCase):
         )
         return chapter
 
+    def test_reference_deviation_requires_fingerprint_and_review_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_file(
+                root / "lt-source-deviations.toml",
+                "\n".join(
+                    [
+                        "version = 1",
+                        "",
+                        "[[reference]]",
+                        'chapter = "DemoBlueprint/Chapters/Main.lean"',
+                        'target = "thm:omitted"',
+                        'reason = "Reviewed unavailable target."',
+                    ]
+                ),
+            )
+            with self.assertRaisesRegex(SystemExit, r"reference\[1\]\.fingerprint"):
+                load_deviations(root)
+
     def test_exact_changed_and_unmatched_witnesses_are_distinguished(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -227,6 +246,154 @@ class SourceFreshnessTests(unittest.TestCase):
             self.assertFalse(report.needs_review)
             self.assertEqual(report.chapters[0].source_labels[0].status, "allowed")
             self.assertEqual(report.errors, ())
+
+    def test_reviewed_reference_deviation_is_witness_scoped_and_expires(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = self.make_project(root)
+            witness = r"This named theorem \ref{thm:omitted} applies."
+            fence = chr(96) * 3
+            write_file(
+                root / chapter,
+                f'#doc (Manual) "Main" =>\n\nThis named theorem applies.\n{fence}tex\n{witness}\n{fence}\n',
+            )
+            write_file(root / "blueprint" / "main.tex", witness + "\n")
+            fingerprint = witness_fingerprint(witness)
+            write_file(
+                root / "lt-source-deviations.toml",
+                "\n".join(
+                    [
+                        "version = 1",
+                        "",
+                        "[[reference]]",
+                        f'chapter = "{chapter}"',
+                        'target = "thm:omitted"',
+                        f'fingerprint = "{fingerprint}"',
+                        'reason = "The upstream target has no linkable Verso anchor."',
+                    ]
+                ),
+            )
+
+            report = audit_project(root, [chapter], source_glob="blueprint/*.tex")
+
+            self.assertEqual(report.errors, ())
+            self.assertEqual(
+                [item.target for item in report.chapters[0].reviewed_references],
+                ["thm:omitted"],
+            )
+            self.assertFalse(report.needs_review)
+
+            write_file(
+                root / "blueprint" / "main.tex",
+                "The maintained upstream source has changed.\n",
+            )
+            upstream_changed = audit_project(
+                root, [chapter], source_glob="blueprint/*.tex"
+            )
+            self.assertEqual(
+                upstream_changed.chapters[0].reviewed_references, ()
+            )
+            self.assertTrue(
+                any(
+                    "unused reference deviation" in error
+                    for error in upstream_changed.errors
+                )
+            )
+
+            write_file(root / "blueprint" / "main.tex", witness + "\n")
+            resolved_verse = (
+                '#doc (Manual) "Main" =>\n\n'
+                'This named theorem {bpref "thm:omitted"}[] applies.\n'
+                f"{fence}tex\n{witness}\n{fence}\n"
+            )
+            write_file(root / chapter, resolved_verse)
+            resolved = audit_project(root, [chapter], source_glob="blueprint/*.tex")
+            self.assertEqual(resolved.chapters[0].reviewed_references, ())
+            self.assertTrue(
+                any("unused reference deviation" in error for error in resolved.errors)
+            )
+
+            changed = "This renamed theorem applies."
+            write_file(
+                root / chapter,
+                f'#doc (Manual) "Main" =>\n\nThis renamed theorem applies.\n{fence}tex\n{changed}\n{fence}\n',
+            )
+            write_file(root / "blueprint" / "main.tex", changed + "\n")
+            expired = audit_project(root, [chapter], source_glob="blueprint/*.tex")
+            self.assertTrue(
+                any("unused reference deviation" in error for error in expired.errors)
+            )
+
+    def test_reviewed_reference_deviation_is_scoped_to_its_chapter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter_a = self.make_project(root)
+            chapter_b = Path("DemoBlueprint/Chapters/Other.lean")
+            witness = r"This named theorem \ref{thm:omitted} applies."
+            fence = chr(96) * 3
+            for chapter in (chapter_a, chapter_b):
+                write_file(
+                    root / chapter,
+                    f'#doc (Manual) "Main" =>\n\nThis named theorem applies.\n{fence}tex\n{witness}\n{fence}\n',
+                )
+            write_file(root / "blueprint" / "main.tex", witness + "\n")
+            write_file(
+                root / "lt-source-deviations.toml",
+                "\n".join(
+                    [
+                        "version = 1",
+                        "",
+                        "[[reference]]",
+                        f'chapter = "{chapter_a}"',
+                        'target = "thm:omitted"',
+                        f'fingerprint = "{witness_fingerprint(witness)}"',
+                        'reason = "The upstream target has no linkable Verso anchor."',
+                    ]
+                ),
+            )
+
+            for selected, expected in ((chapter_a, 1), (chapter_b, 0)):
+                report = audit_project(root, [selected], source_glob="blueprint/*.tex")
+                self.assertEqual(
+                    len(report.chapters[0].reviewed_references), expected
+                )
+                self.assertEqual(report.errors, ())
+
+    def test_reviewed_reference_does_not_mask_hard_metadata_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = self.make_project(root)
+            witness = (
+                r"This named theorem \ref{thm:omitted} applies. "
+                r"\uses{Dependency.target}"
+            )
+            fence = chr(96) * 3
+            write_file(
+                root / chapter,
+                f'#doc (Manual) "Main" =>\n\nThis named theorem applies.\n{fence}tex\n{witness}\n{fence}\n',
+            )
+            write_file(root / "blueprint" / "main.tex", witness + "\n")
+            write_file(
+                root / "lt-source-deviations.toml",
+                "\n".join(
+                    [
+                        "version = 1",
+                        "",
+                        "[[reference]]",
+                        f'chapter = "{chapter}"',
+                        'target = "thm:omitted"',
+                        f'fingerprint = "{witness_fingerprint(witness)}"',
+                        'reason = "The upstream target has no linkable Verso anchor."',
+                    ]
+                ),
+            )
+
+            report = audit_project(root, [chapter], source_glob="blueprint/*.tex")
+
+            self.assertEqual(report.chapters[0].reviewed_references, ())
+            self.assertTrue(
+                any("unused reference deviation" in error for error in report.errors)
+            )
 
     def test_explicit_source_map_excludes_legacy_files_with_reused_labels(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
