@@ -16,8 +16,10 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from _harnesslib import load_config, resolve_chapter_paths, resolve_project_root  # noqa: E402
+from _source_metadata import resolve_source_targets, source_lean_label_aliases  # noqa: E402
 from check_lt_similarity import (  # noqa: E402
     block_body,
+    extract_tex_refs,
     normalize_tex,
     paired_blocks,
     score_pair,
@@ -73,9 +75,18 @@ class SourceLabelDeviation:
 
 
 @dataclass(frozen=True)
+class ReferenceDeviation:
+    chapter: Path
+    target: str
+    fingerprint: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class SourceDeviations:
     witnesses: tuple[WitnessDeviation, ...] = ()
     source_labels: tuple[SourceLabelDeviation, ...] = ()
+    references: tuple[ReferenceDeviation, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -111,6 +122,7 @@ class ChapterFreshness:
     chapter: Path
     witnesses: tuple[WitnessFreshness, ...]
     source_labels: tuple[SourceLabelFreshness, ...]
+    reviewed_references: tuple[ReferenceDeviation, ...] = ()
 
     @property
     def stale_witness_count(self) -> int:
@@ -189,6 +201,7 @@ def load_deviations(project_root: Path) -> SourceDeviations:
 
     raw_witnesses = data.get("witness", [])
     raw_source_labels = data.get("source_label", [])
+    raw_references = data.get("reference", [])
     if not isinstance(raw_witnesses, list) or not all(
         isinstance(item, dict) for item in raw_witnesses
     ):
@@ -197,6 +210,10 @@ def load_deviations(project_root: Path) -> SourceDeviations:
         isinstance(item, dict) for item in raw_source_labels
     ):
         raise SystemExit(f"{DEVIATIONS_FILENAME}: source_label must be an array of tables")
+    if not isinstance(raw_references, list) or not all(
+        isinstance(item, dict) for item in raw_references
+    ):
+        raise SystemExit(f"{DEVIATIONS_FILENAME}: reference must be an array of tables")
 
     witnesses: list[WitnessDeviation] = []
     for index, item in enumerate(raw_witnesses, start=1):
@@ -224,7 +241,33 @@ def load_deviations(project_root: Path) -> SourceDeviations:
             )
         source_labels.append(SourceLabelDeviation(source, label, reason))
 
-    return SourceDeviations(tuple(witnesses), tuple(source_labels))
+    references: list[ReferenceDeviation] = []
+    seen_reference_keys: set[tuple[Path, str, str]] = set()
+    for index, item in enumerate(raw_references, start=1):
+        chapter = Path(require_nonempty_string(item, "chapter", f"reference[{index}]"))
+        target = require_nonempty_string(item, "target", f"reference[{index}]")
+        fingerprint = require_nonempty_string(
+            item, "fingerprint", f"reference[{index}]"
+        )
+        reason = require_nonempty_string(item, "reason", f"reference[{index}]")
+        if chapter.is_absolute():
+            raise SystemExit(
+                f"{DEVIATIONS_FILENAME}: reference[{index}].chapter must be relative"
+            )
+        if not re.fullmatch(r"[0-9a-f]{64}", fingerprint):
+            raise SystemExit(
+                f"{DEVIATIONS_FILENAME}: reference[{index}].fingerprint must be a SHA-256 hex digest"
+            )
+        key = (chapter, target, fingerprint)
+        if key in seen_reference_keys:
+            raise SystemExit(
+                f"{DEVIATIONS_FILENAME}: duplicate reference deviation for "
+                f"{chapter} target={target} sha256={fingerprint[:12]}"
+            )
+        seen_reference_keys.add(key)
+        references.append(ReferenceDeviation(chapter, target, fingerprint, reason))
+
+    return SourceDeviations(tuple(witnesses), tuple(source_labels), tuple(references))
 
 
 def source_nodes(text: str) -> tuple[SourceNode, ...]:
@@ -275,6 +318,9 @@ def audit_project(
     source_glob: str,
     source_map: tuple[tuple[str, tuple[str, ...]], ...] = (),
     deviations: SourceDeviations | None = None,
+    source_aliases: dict[str, set[str]] | None = None,
+    lean_target_aliases: dict[str, str] | None = None,
+    unresolved_lean_targets: set[str] | None = None,
 ) -> ProjectFreshness:
     deviations = deviations if deviations is not None else load_deviations(project_root)
     sources = load_source_documents(project_root, source_glob)
@@ -317,6 +363,8 @@ def audit_project(
     }
     used_witness_deviations: set[tuple[Path, str]] = set()
     used_source_label_deviations: set[tuple[Path, str]] = set()
+    used_reference_deviations: set[tuple[Path, str, str]] = set()
+    reviewed_references_by_chapter: dict[Path, list[ReferenceDeviation]] = defaultdict(list)
 
     witnesses_by_chapter: dict[Path, list[WitnessFreshness]] = defaultdict(list)
     local_labels_by_chapter: dict[Path, set[str]] = defaultdict(set)
@@ -349,7 +397,21 @@ def audit_project(
             normalized = normalize_tex(body)
             canonical = canonicalize_tex_source(body)
             fingerprint = witness_fingerprint(body)
-            pair_score = score_pair(block, tex)
+            pair_score = score_pair(
+                block,
+                tex,
+                source_aliases=source_aliases,
+                lean_target_aliases=lean_target_aliases,
+                unresolved_lean_targets=unresolved_lean_targets,
+            )
+            reference_candidates: list[ReferenceDeviation] = []
+            for deviation in deviations.references:
+                if (
+                    deviation.chapter == chapter
+                    and deviation.fingerprint == fingerprint
+                    and deviation.target in extract_tex_refs(body)
+                ):
+                    reference_candidates.append(deviation)
             labels = set(pair_score.tex_labels)
             if pair_score.verso_header_id is not None:
                 labels.add(pair_score.verso_header_id)
@@ -418,6 +480,29 @@ def audit_project(
                     status = raw_status
                     reason = None
                 source_paths = raw_source_paths
+
+            # A navigation exception is usable only when the witness itself is
+            # current. Stale witness content remains a separate hard failure.
+            if status == "exact" and pair_score.pure_metadata_diff_count == 0:
+                local_targets = (
+                    pair_score.verso_uses
+                    | pair_score.verso_bprefs
+                    | pair_score.verso_refs
+                )
+                for deviation in reference_candidates:
+                    resolved_target = resolve_source_targets(
+                        {deviation.target},
+                        local_targets,
+                        source_aliases or {},
+                    )
+                    if resolved_target & pair_score.unresolved_ref_hints:
+                        deviation_key = (
+                            deviation.chapter,
+                            deviation.target,
+                            deviation.fingerprint,
+                        )
+                        used_reference_deviations.add(deviation_key)
+                        reviewed_references_by_chapter[chapter].append(deviation)
 
             witnesses_by_chapter[chapter].append(
                 WitnessFreshness(
@@ -499,6 +584,14 @@ def audit_project(
             and key not in used_source_label_deviations
         ):
             errors.append(f"unused source-label deviation {deviation.source} label={deviation.label}")
+    for deviation in deviations.references:
+        key = (deviation.chapter, deviation.target, deviation.fingerprint)
+        if deviation.chapter in selected_chapters and key not in used_reference_deviations:
+            errors.append(
+                "unused reference deviation "
+                f"{deviation.chapter} target={deviation.target} "
+                f"sha256={deviation.fingerprint[:12]}"
+            )
 
     chapters: list[ChapterFreshness] = []
     for chapter_path in chapter_paths:
@@ -514,6 +607,7 @@ def audit_project(
                 chapter=chapter,
                 witnesses=tuple(witnesses_by_chapter[chapter]),
                 source_labels=tuple(source_labels_by_chapter[chapter]),
+                reviewed_references=tuple(reviewed_references_by_chapter[chapter]),
             )
         )
     return ProjectFreshness(tuple(chapters), tuple(errors))
@@ -522,6 +616,9 @@ def audit_project(
 def print_report(report: ProjectFreshness, *, verbose: bool) -> None:
     totals = Counter(item.status for chapter in report.chapters for item in chapter.witnesses)
     label_totals = Counter(item.status for chapter in report.chapters for item in chapter.source_labels)
+    reviewed_reference_count = sum(
+        len(chapter.reviewed_references) for chapter in report.chapters
+    )
     print("summary:")
     print(f"  chapters: {len(report.chapters)}")
     print(f"  witnesses: {sum(totals.values())}")
@@ -529,6 +626,7 @@ def print_report(report: ProjectFreshness, *, verbose: bool) -> None:
         print(f"  witness_{status.replace('-', '_')}: {totals[status]}")
     print(f"  source_labels_missing: {label_totals['missing']}")
     print(f"  source_labels_allowed: {label_totals['allowed']}")
+    print(f"  references_reviewed: {reviewed_reference_count}")
     print(f"  errors: {len(report.errors)}")
     print(f"  current: {'no' if report.needs_review else 'yes'}")
 
@@ -541,7 +639,8 @@ def print_report(report: ProjectFreshness, *, verbose: bool) -> None:
             f"content_changed={counts['content-changed']} "
             f"unmatched={counts['unmatched']} allowed={counts['allowed']} "
             f"source_labels_missing={chapter.missing_source_label_count} "
-            f"source_labels_allowed={sum(item.status == 'allowed' for item in chapter.source_labels)}"
+            f"source_labels_allowed={sum(item.status == 'allowed' for item in chapter.source_labels)} "
+            f"references_reviewed={len(chapter.reviewed_references)}"
         )
         if verbose:
             for item in chapter.witnesses:
@@ -559,6 +658,12 @@ def print_report(report: ProjectFreshness, *, verbose: bool) -> None:
                 print(
                     f"    source-label: {item.status} source={item.source} "
                     f"label={item.label}{reason}"
+                )
+            for item in chapter.reviewed_references:
+                reason = f" reason={item.reason}" if item.reason else ""
+                print(
+                    f"    reference: reviewed target={item.target} "
+                    f"sha256={item.fingerprint}{reason}"
                 )
     for error in report.errors:
         print(f"error: {error}")
@@ -589,6 +694,11 @@ def main() -> int:
         chapter_paths,
         source_glob=config.tex_source_glob,
         source_map=config.lt_source_files,
+        source_aliases=source_lean_label_aliases(
+            project_root, config.tex_source_glob
+        ),
+        lean_target_aliases=dict(config.lt_lean_target_aliases),
+        unresolved_lean_targets=set(config.lt_unresolved_lean_targets),
     )
     print(f"project root: {project_root}")
     print(f"tex_source_glob: {config.tex_source_glob}")

@@ -163,6 +163,30 @@ Alpha.
         self.assertEqual(score.missing_lean, set())
         self.assertEqual(score.extra_lean, set())
 
+    def test_proof_source_lean_is_reported_as_unsupported_attachment_debt(self) -> None:
+        proof = verso_block(
+            "We prove it.",
+            header=":::proof",
+        )
+        tex = tex_block(
+            "\\begin{proof}\\lean{Demo.firstProof, Demo.secondProof}\n"
+            "We prove it.\n\\end{proof}"
+        )
+        score = score_pair(proof, tex)
+        self.assertEqual(score.unsupported_proof_lean, {"Demo.firstProof", "Demo.secondProof"})
+        self.assertEqual(score.tex_lean, set())
+        self.assertEqual(score.missing_lean, set())
+        self.assertEqual(score.unresolved_tex_lean, set())
+        self.assertEqual(score.pure_metadata_diff_count, 0)
+
+        attached_proof = verso_block(
+            "We prove it.",
+            header=':::proof "demo-proof" (lean := "Demo.firstProof")',
+        )
+        attached_score = score_pair(attached_proof, tex)
+        self.assertEqual(attached_score.extra_lean, {"Demo.firstProof"})
+        self.assertEqual(attached_score.pure_metadata_diff_count, 1)
+
     def test_source_lean_use_resolves_to_selected_blueprint_label(self) -> None:
         verso = verso_block(
             "Alpha.",

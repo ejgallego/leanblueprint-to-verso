@@ -23,6 +23,7 @@ The host repository owns:
 - all blueprint prose and chapter structure
 - any project-specific chapter include/exclude choices for LT audit runs
 - edits to `lakefile.lean` and the root blueprint modules after bootstrap
+- project-specific CI checks in `scripts/ci-pre-build.sh` and `scripts/ci-post-build.sh`
 
 ## Safe Automatic Refresh
 
@@ -31,6 +32,9 @@ mechanically:
 
 - `scripts/ci-pages.sh`
 - `.github/workflows/blueprint.yml` as the thin caller into the upstream `verso-blueprint` reusable workflow
+
+Bootstrap creates `scripts/ci-post-build.sh`; hosts may also add
+`scripts/ci-pre-build.sh`. `update_ci.py` does not overwrite either hook.
 
 Everything else should be reviewed and updated deliberately by Codex or a human
 after reading the helper diff.

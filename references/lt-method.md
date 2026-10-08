@@ -43,6 +43,12 @@ Faithfulness`) are accepted aliases for the same workflow.
   for LT. First pair the text with a source witness, then tighten
   `(lean := "...")`, `(uses := ...)`, inline `{uses "..."}[]` where it is
   natural in prose, and `{bpref "..."}[]`.
+- Current Verso Blueprint `:::proof` blocks do not accept `(lean := ...)`.
+  Preserve source proof-side `\lean{...}` names in the adjacent TeX witness;
+  the audits report them as unsupported proof-attachment debt instead of
+  requiring them in the proof header. A local `lean :=` on a proof remains a
+  metadata error. Statement attachments, `uses`, and witness freshness remain
+  fully checked.
 - Treat dependency metadata such as `uses_origin`, `uses_intent`, inline
   `origin` / `intent`, and `autoDeps` as curation or generated-dependency
   metadata, not as part of the first LT port. Source TeX `\uses{...}` edges
@@ -116,6 +122,25 @@ fingerprint = "<64 lowercase hex characters from the freshness report>"
 reason = "Upstream metadata names a removed node; omit the dangling local edge."
 ```
 
+For a reviewed TeX navigation target that currently has no linkable local
+Verso anchor, record a narrowly scoped reference exception:
+
+```toml
+[[reference]]
+chapter = "MyBlueprint/Chapters/Main.lean"
+target = "thm:upstream-target"
+fingerprint = "<SHA-256 of this adjacent tex witness body>"
+reason = "The source target has no linkable anchor in this Verso release."
+```
+
+The exception applies only to that target in that chapter and witness, while it
+remains an unresolved reference hint and the pair has no other pure metadata
+drift. It does not suppress uses, Lean attachments, labels, witness freshness,
+pairing, or similarity findings. An unused, resolved, or edited witness makes
+the exception stale and fails the freshness audit. Completion status prints
+the accepted targets and their count so a metadata-clean or built chapter still
+shows this reviewed navigation debt.
+
 ## Triage Order For Low-Similarity Blocks
 
 1. shrink or split the witness to the exact source span
@@ -135,6 +160,17 @@ python3 tools/verso-harness/scripts/check_lt_similarity.py --project-root . path
 python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root . path/to/Chapter.lean
 python3 tools/verso-harness/scripts/check_verso_math_delimiters.py --project-root . path/to/Chapter.lean
 ```
+
+Before the site build, run the repo-level static gate:
+
+```bash
+python3 tools/verso-harness/scripts/status_completion.py --project-root . --require-metadata-clean
+```
+
+The ordinary status report stays informational. With this option, source
+freshness errors or any selected chapter below `metadata-clean` fail the
+command. Generated `scripts/ci-pages.sh` runs the same gate before its project
+hook, dependency-cache warming, or build.
 
 Use `lt_audit.py --node-kinds --math-sanity` when you also want the focused
 chapter build, optional pages smoke test, the graph-visible node-kind check,

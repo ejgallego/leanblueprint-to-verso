@@ -48,6 +48,16 @@ def summarize(
     env_refs = sum(len(score.env_ref_hints) for score in scores)
     soft_refs = sum(len(score.soft_ref_hints) for score in scores)
     source_unresolved_lean = sum(len(score.unresolved_tex_lean) for score in scores)
+    unsupported_proof_lean = sum(
+        len(score.unsupported_proof_lean) for score in scores
+    )
+    unsupported_proof_targets = sorted(
+        {
+            target
+            for score in scores
+            for target in score.unsupported_proof_lean
+        }
+    )
     return (
         f"{path.name}: pairs={len(scores)} "
         f"avg={statistics.mean(primary_values):.3f} "
@@ -55,7 +65,9 @@ def summarize(
         f"low={low} metadata={metadata} "
         f"ref_review={ref_review} "
         f"strong_refs={strong_refs} env_ref_hints={env_refs} "
-        f"soft_ref_hints={soft_refs} source_unresolved_lean={source_unresolved_lean}"
+        f"soft_ref_hints={soft_refs} source_unresolved_lean={source_unresolved_lean} "
+        f"unsupported_proof_lean={unsupported_proof_lean} "
+        f"unsupported_proof_targets={unsupported_proof_targets}"
     )
 
 

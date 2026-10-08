@@ -81,6 +81,12 @@ def main() -> int:
         "__PAGES_WORKFLOW_REPO__": pages_workflow_repo,
         "__PAGES_WORKFLOW_REF__": pages_workflow_ref,
         "__BLUEPRINT_MAIN__": config.blueprint_main,
+        "__MAX_MISSING_MATHLIB_MODULES_OPTION__": (
+            " --max-missing-mathlib-modules "
+            f"{config.max_missing_mathlib_modules}"
+            if config.max_missing_mathlib_modules
+            else ""
+        ),
     }
 
     changed = 0

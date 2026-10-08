@@ -17,6 +17,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import status_completion  # noqa: E402
+from check_lt_source_freshness import witness_fingerprint  # noqa: E402
 from lt_audit import StepResult  # noqa: E402
 
 
@@ -166,6 +167,7 @@ class StatusCompletionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
         self.assertIn("--build", result.stdout)
         self.assertIn("--require-complete", result.stdout)
+        self.assertIn("--require-metadata-clean", result.stdout)
 
     def test_status_completion_reports_scope_and_state_transitions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -195,6 +197,204 @@ class StatusCompletionTests(unittest.TestCase):
             self.assertIn("[paired] DemoBlueprint/Chapters/Low.lean", result.stdout)
             self.assertIn("[unpaired] DemoBlueprint/Chapters/Unpaired.lean", result.stdout)
             self.assertIn("[untracked] DemoBlueprint/Chapters/Scratch.lean", result.stdout)
+
+    def test_require_metadata_clean_accepts_selected_clean_chapter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_project(root)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                    "--require-metadata-clean",
+                    "DemoBlueprint/Chapters/Clean.lean",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("metadata_clean: yes", result.stdout)
+            self.assertIn("[metadata-clean] DemoBlueprint/Chapters/Clean.lean", result.stdout)
+
+    def test_require_metadata_clean_rejects_selected_nonclean_chapter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_project(root)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                    "--require-metadata-clean",
+                    "DemoBlueprint/Chapters/Metadata.lean",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("metadata_clean: no", result.stdout)
+            self.assertIn("[lt-audited] DemoBlueprint/Chapters/Metadata.lean", result.stdout)
+
+    def test_require_metadata_clean_rejects_source_freshness_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_project(root)
+            (root / "blueprint" / "src" / "chapter" / "main.tex").unlink()
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                    "--require-metadata-clean",
+                    "DemoBlueprint/Chapters/Clean.lean",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("source_freshness_errors: 1", result.stdout)
+            self.assertIn("metadata_clean: no", result.stdout)
+
+    def test_require_metadata_clean_reports_reviewed_reference_debt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = Path("DemoBlueprint/Chapters/Main.lean")
+            witness = r"This named theorem \ref{thm:omitted} applies."
+            write_file(
+                root / "verso-harness.toml",
+                '\n'.join(
+                    [
+                        'package_name = "DemoBlueprint"',
+                        'blueprint_main = "BlueprintMain"',
+                        'formalization_path = "Demo"',
+                        'chapter_root = "DemoBlueprint/Chapters"',
+                        'tex_source_glob = "blueprint/src/chapter/main.tex"',
+                        '',
+                        '[lt]',
+                        f'default_chapters = ["{chapter}"]',
+                        '',
+                    ]
+                ),
+            )
+            fence = chr(96) * 3
+            write_file(
+                root / chapter,
+                f'#doc (Manual) "Main" =>\n\nThis named theorem applies.\n{fence}tex\n{witness}\n{fence}\n',
+            )
+            write_file(root / "blueprint/src/chapter/main.tex", witness + "\n")
+            write_file(
+                root / "lt-source-deviations.toml",
+                '\n'.join(
+                    [
+                        'version = 1',
+                        '',
+                        '[[reference]]',
+                        f'chapter = "{chapter}"',
+                        'target = "thm:omitted"',
+                        f'fingerprint = "{witness_fingerprint(witness)}"',
+                        'reason = "The upstream target has no linkable Verso anchor."',
+                    ]
+                ),
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                    "--require-metadata-clean",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("[metadata-clean] DemoBlueprint/Chapters/Main.lean", result.stdout)
+            self.assertIn("reviewed_reference_debt=1", result.stdout)
+            self.assertIn("reviewed reference targets: thm:omitted", result.stdout)
+
+    def test_reviewed_reference_does_not_mask_hard_metadata_or_similarity_debt(self) -> None:
+        for verse, tex, expected_state in (
+            (
+                "This named theorem applies.",
+                r"This named theorem \ref{thm:omitted} applies. \uses{Dependency.target}",
+                "lt-audited",
+            ),
+            (
+                "Completely unrelated wording.",
+                r"This named theorem \ref{thm:omitted} applies.",
+                "paired",
+            ),
+        ):
+            with self.subTest(expected_state=expected_state), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                chapter = Path("DemoBlueprint/Chapters/Main.lean")
+                write_file(
+                    root / "verso-harness.toml",
+                    '\n'.join(
+                        [
+                            'package_name = "DemoBlueprint"',
+                            'blueprint_main = "BlueprintMain"',
+                            'formalization_path = "Demo"',
+                            'chapter_root = "DemoBlueprint/Chapters"',
+                            'tex_source_glob = "blueprint/src/chapter/main.tex"',
+                            '',
+                            '[lt]',
+                            f'default_chapters = ["{chapter}"]',
+                            '',
+                        ]
+                    ),
+                )
+                fence = chr(96) * 3
+                write_file(
+                    root / chapter,
+                    f'#doc (Manual) "Main" =>\n\n{verse}\n{fence}tex\n{tex}\n{fence}\n',
+                )
+                write_file(root / "blueprint/src/chapter/main.tex", tex + "\n")
+                write_file(
+                    root / "lt-source-deviations.toml",
+                    '\n'.join(
+                        [
+                            'version = 1',
+                            '',
+                            '[[reference]]',
+                            f'chapter = "{chapter}"',
+                            'target = "thm:omitted"',
+                            f'fingerprint = "{witness_fingerprint(tex)}"',
+                            'reason = "The upstream target has no linkable Verso anchor."',
+                        ]
+                    ),
+                )
+
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(SCRIPT_DIR / "status_completion.py"),
+                        "--project-root",
+                        str(root),
+                        "--require-metadata-clean",
+                    ],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+
+                self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+                self.assertIn(f"[{expected_state}] {chapter}", result.stdout)
 
     def test_status_completion_can_require_build_clean_done_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -299,6 +499,109 @@ Alpha.
             )
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("source_unresolved_lean=1", result.stdout)
+
+    def test_status_completion_reports_unsupported_proof_attachment_debt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = Path("DemoBlueprint/Chapters/Proof.lean")
+            source = (
+                r"\begin{proof}\lean{Demo.firstProof, Demo.secondProof}" "\n"
+                "We prove it.\n"
+                r"\end{proof}" "\n"
+            )
+            write_file(
+                root / "verso-harness.toml",
+                "\n".join(
+                    [
+                        'package_name = "DemoBlueprint"',
+                        'blueprint_main = "BlueprintMain"',
+                        'formalization_path = "Demo"',
+                        'chapter_root = "DemoBlueprint/Chapters"',
+                        'tex_source_glob = "blueprint/src/chapter/main.tex"',
+                        "",
+                        "[lt]",
+                        f'default_chapters = ["{chapter}"]',
+                        "",
+                    ]
+                ),
+            )
+            write_file(
+                root / chapter,
+                '#doc (Manual) "Proof" =>\n\n'
+                ':::proof "demo-proof"\nWe prove it.\n:::\n'
+                '```tex\n' + source + '```\n',
+            )
+            write_file(root / "blueprint/src/chapter/main.tex", source)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                    "--require-metadata-clean",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("[metadata-clean]", result.stdout)
+            self.assertIn("source_unresolved_lean=0", result.stdout)
+            self.assertIn("unsupported_proof_lean=2", result.stdout)
+            self.assertIn(
+                "unsupported proof attachment targets: Demo.firstProof, Demo.secondProof",
+                result.stdout,
+            )
+
+    def test_statement_source_lean_still_requires_verso_attachment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = Path("DemoBlueprint/Chapters/Main.lean")
+            source = (
+                r"\begin{theorem}\label{demo}\lean{Demo.statement}" "\n"
+                "Alpha.\n"
+                r"\end{theorem}" "\n"
+            )
+            write_file(
+                root / "verso-harness.toml",
+                "\n".join(
+                    [
+                        'package_name = "DemoBlueprint"',
+                        'blueprint_main = "BlueprintMain"',
+                        'formalization_path = "Demo"',
+                        'chapter_root = "DemoBlueprint/Chapters"',
+                        'tex_source_glob = "blueprint/src/chapter/main.tex"',
+                        "",
+                        "[lt]",
+                        f'default_chapters = ["{chapter}"]',
+                        "",
+                    ]
+                ),
+            )
+            write_file(
+                root / chapter,
+                '#doc (Manual) "Main" =>\n\n'
+                ':::theorem "demo"\nAlpha.\n:::\n'
+                '```tex\n' + source + '```\n',
+            )
+            write_file(root / "blueprint/src/chapter/main.tex", source)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("[lt-audited]", result.stdout)
+            self.assertIn("metadata=1", result.stdout)
+            self.assertIn("unsupported_proof_lean=0", result.stdout)
 
     def test_status_completion_blocks_on_stale_upstream_witnesses(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

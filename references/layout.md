@@ -19,6 +19,7 @@ host-repo/
 ├── lakefile.lean
 ├── lean-toolchain
 ├── scripts/ci-pages.sh
+├── scripts/ci-post-build.sh
 └── .github/workflows/blueprint.yml
 ```
 

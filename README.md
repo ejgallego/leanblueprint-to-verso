@@ -95,17 +95,31 @@ python3 tools/verso-harness/scripts/lt_audit.py --project-root . path/to/Chapter
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings path/to/Chapter.lean
 python3 tools/verso-harness/scripts/lt_audit.py --project-root . --native-warnings --native-warnings-scope all path/to/Chapter.lean
 python3 tools/verso-harness/scripts/status_completion.py --project-root . --build
+python3 tools/verso-harness/scripts/status_completion.py --project-root . --require-metadata-clean
 ```
 
+The default completion command is informational. Add `--require-metadata-clean`
+to fail when source-freshness checks report errors or any selected chapter is
+not `metadata-clean` or `done`. Generated `scripts/ci-pages.sh` runs this
+static gate before the optional project hook, cache warming, and site build, so
+source-paired LT debt is visible before the longer validation steps start.
+
 Generated `scripts/ci-pages.sh` uses the supported
-`lake exe vbp build --output _out/site` interface. It runs the dependency-cache
-guard first; the guard fetches the mathlib cache and refuses to continue if
-mathlib artifacts are still incomplete, so a site smoke cannot silently compile
-mathlib. Focused `lt_audit.py` chapter builds use the same guard.
+`lake exe vbp build --output _out/site` interface. After the metadata gate and
+optional project hook, it runs the dependency-cache guard; the guard fetches
+the mathlib cache and refuses to continue if mathlib artifacts are still
+incomplete, so a site smoke cannot silently compile mathlib. Focused
+`lt_audit.py` chapter builds use the same cache guard.
 
 Generated `scripts/ci-pages.sh` runs an executable project-owned
 `scripts/ci-pre-build.sh` hook before cache warming when a consumer needs local
 CI setup before the standard build.
+It runs an executable project-owned `scripts/ci-post-build.sh` hook after
+generated-site validation for project-specific checks such as `lake test`.
+Bootstrap materializes the post-build hook, and both hooks remain project-owned
+during CI refreshes. Set `harness.max_missing_mathlib_modules` only for an explicitly
+reviewed cache gap; the default is zero, and partial cache artifacts always
+fail the guard.
 Its warning filter flushes every visible line so long Lean builds continue to
 show progress while docstring noise is suppressed.
 

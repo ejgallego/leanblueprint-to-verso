@@ -63,6 +63,7 @@ class HarnessConfigTests(unittest.TestCase):
             self.assertFalse(config.native_warnings)
             self.assertFalse(config.docstring_warnings)
             self.assertTrue(config.strict_external_code)
+            self.assertEqual(config.max_missing_mathlib_modules, 0)
 
     def test_source_lean_target_policy_is_loaded(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -194,6 +195,34 @@ class HarnessConfigTests(unittest.TestCase):
             self.assertTrue(config.native_warnings)
             self.assertTrue(config.docstring_warnings)
             self.assertFalse(config.strict_external_code)
+
+    def test_max_missing_mathlib_modules_can_be_configured(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root)
+            config_path = root / 'verso-harness.toml'
+            config_path.write_text(
+                config_path.read_text(encoding='utf-8')
+                + '\n[harness]\nmax_missing_mathlib_modules = 2\n',
+                encoding='utf-8',
+            )
+            config = load_config(root)
+            self.assertEqual(config.max_missing_mathlib_modules, 2)
+
+    def test_invalid_max_missing_mathlib_modules_is_rejected(self) -> None:
+        for value in ('-1', '1.5', 'true', '"2"'):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                write_config(root)
+                config_path = root / 'verso-harness.toml'
+                config_path.write_text(
+                    config_path.read_text(encoding='utf-8')
+                    + f'\n[harness]\nmax_missing_mathlib_modules = {value}\n',
+                    encoding='utf-8',
+                )
+                with self.assertRaises(SystemExit) as exc:
+                    load_config(root)
+                self.assertIn('harness.max_missing_mathlib_modules', str(exc.exception))
 
     def test_wrapper_toolchain_override_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

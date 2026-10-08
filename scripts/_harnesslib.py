@@ -33,6 +33,7 @@ DEFAULT_LT_NODE_KIND_PAIRS = (
 DEFAULT_NATIVE_WARNINGS = False
 DEFAULT_DOCSTRING_WARNINGS = False
 DEFAULT_STRICT_EXTERNAL_CODE = True
+DEFAULT_MAX_MISSING_MATHLIB_MODULES = 0
 @dataclass(frozen=True)
 class HarnessConfig:
     package_name: str
@@ -48,6 +49,7 @@ class HarnessConfig:
     native_warnings: bool
     docstring_warnings: bool
     strict_external_code: bool
+    max_missing_mathlib_modules: int
 
 
 def resolve_project_root(raw: Path | None) -> Path:
@@ -178,6 +180,16 @@ def require_bool(table: dict[str, object], key: str, field_name: str) -> bool:
     value = table.get(key)
     if not isinstance(value, bool):
         raise SystemExit(f"{CONFIG_FILENAME}: missing or invalid {field_name}")
+    return value
+
+
+def require_nonnegative_int(table: dict[str, object], key: str, field_name: str) -> int:
+    value = table.get(key)
+    if type(value) is not int or value < 0:
+        raise SystemExit(
+            f"{CONFIG_FILENAME}: missing or invalid {field_name}; "
+            "expected a non-negative integer"
+        )
     return value
 
 
@@ -406,6 +418,15 @@ def load_config(project_root: Path) -> HarnessConfig:
         if "strict_external_code" in harness_section
         else DEFAULT_STRICT_EXTERNAL_CODE
     )
+    max_missing_mathlib_modules = (
+        require_nonnegative_int(
+            harness_section,
+            "max_missing_mathlib_modules",
+            "harness.max_missing_mathlib_modules",
+        )
+        if "max_missing_mathlib_modules" in harness_section
+        else DEFAULT_MAX_MISSING_MATHLIB_MODULES
+    )
     if "wrapper_toolchain_override" in harness_section:
         raise SystemExit(
             f"{CONFIG_FILENAME}: harness.wrapper_toolchain_override is no longer supported; "
@@ -447,6 +468,7 @@ def load_config(project_root: Path) -> HarnessConfig:
         native_warnings=native_warnings,
         docstring_warnings=docstring_warnings,
         strict_external_code=strict_external_code,
+        max_missing_mathlib_modules=max_missing_mathlib_modules,
     )
 
 

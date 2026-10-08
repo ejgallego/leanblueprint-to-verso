@@ -17,13 +17,20 @@ from _harnesslib import (  # noqa: E402
     load_config,
     resolve_project_root,
 )
-from _source_metadata import source_lean_label_aliases  # noqa: E402
+from _source_metadata import resolve_source_targets, source_lean_label_aliases  # noqa: E402
 from check_blueprint_node_kinds import audit_file as audit_node_kinds  # noqa: E402
-from check_lt_similarity import paired_blocks, score_pair  # noqa: E402
+from check_lt_similarity import (  # noqa: E402
+    block_body,
+    extract_tex_refs,
+    paired_blocks,
+    score_pair,
+)
 from check_lt_source_freshness import (  # noqa: E402
     ChapterFreshness,
     ProjectFreshness,
+    ReferenceDeviation,
     audit_project as audit_source_freshness,
+    witness_fingerprint,
 )
 from check_verso_math_delimiters import suspicious_math_syntax  # noqa: E402
 from lt_audit import (  # noqa: E402
@@ -75,6 +82,10 @@ class CompletionStatus:
     source_missing: int = 0
     source_deviations: int = 0
     source_unresolved_lean: int = 0
+    unsupported_proof_lean: int = 0
+    unsupported_proof_lean_targets: tuple[str, ...] = ()
+    reviewed_reference_debt: int = 0
+    reviewed_reference_targets: tuple[str, ...] = ()
 
 
 def chapter_root_paths(project_root: Path, chapter_root: str) -> list[Path]:
@@ -105,15 +116,38 @@ def selected_paths(
     return sorted(dict.fromkeys(combined))
 
 
-def metadata_dirty_count(scores: list[object]) -> int:
-    return sum(
-        bool(
+def metadata_dirty_count(
+    scores: list[object],
+    *,
+    reviewed_references: tuple[ReferenceDeviation, ...] = (),
+    source_aliases: dict[str, set[str]] | None = None,
+) -> int:
+    reviewed_by_fingerprint: dict[str, list[ReferenceDeviation]] = {}
+    for deviation in reviewed_references:
+        reviewed_by_fingerprint.setdefault(deviation.fingerprint, []).append(deviation)
+
+    dirty = 0
+    for score in scores:
+        tex_body = block_body(score.tex)
+        fingerprint = witness_fingerprint(tex_body)
+        remaining_ref_hints = set(score.unresolved_ref_hints)
+        local_targets = score.verso_uses | score.verso_bprefs | score.verso_refs
+        for deviation in reviewed_by_fingerprint.get(fingerprint, []):
+            if deviation.target not in extract_tex_refs(tex_body):
+                continue
+            resolved_target = resolve_source_targets(
+                {deviation.target},
+                local_targets,
+                source_aliases or {},
+            )
+            remaining_ref_hints -= resolved_target
+        if (
             score.exact_drift_count
-            or score.ref_hint_count
+            or remaining_ref_hints
             or score.placeholder_lean_attachments
-        )
-        for score in scores
-    )
+        ):
+            dirty += 1
+    return dirty
 
 
 def label_issue_count(scores: list[object]) -> int:
@@ -173,6 +207,12 @@ def classify_direct_port(
     source_freshness: ChapterFreshness | None = None,
 ) -> CompletionStatus:
     path = project_root / relative_path
+    reviewed_references = (
+        source_freshness.reviewed_references if source_freshness is not None else ()
+    )
+    reviewed_reference_targets = tuple(
+        sorted({deviation.target for deviation in reviewed_references})
+    )
     if not path.exists():
         return CompletionStatus(
             relative_path=relative_path,
@@ -187,6 +227,8 @@ def classify_direct_port(
             build_checked=False,
             build_ok=None,
             reasons=("missing file",),
+            reviewed_reference_debt=len(reviewed_references),
+            reviewed_reference_targets=reviewed_reference_targets,
         )
 
     pairs, pair_errors = paired_blocks(path)
@@ -205,6 +247,8 @@ def classify_direct_port(
             build_checked=False,
             build_ok=None,
             reasons=tuple(reasons),
+            reviewed_reference_debt=len(reviewed_references),
+            reviewed_reference_targets=reviewed_reference_targets,
         )
 
     lean_target_aliases = dict(config.lt_lean_target_aliases)
@@ -222,9 +266,25 @@ def classify_direct_port(
     low_similarity = sum(score.primary_ratio < warn_below for score in scores)
     node_kind_issues = len(audit_node_kinds(path, tex_to_verso=dict(config.lt_node_kind_pairs)))
     math_issues = len(suspicious_math_syntax(path))
-    metadata_dirty = metadata_dirty_count(scores)
+    metadata_dirty = metadata_dirty_count(
+        scores,
+        reviewed_references=reviewed_references,
+        source_aliases=source_aliases,
+    )
     label_issues = label_issue_count(scores)
     source_unresolved_lean = sum(len(score.unresolved_tex_lean) for score in scores)
+    unsupported_proof_lean = sum(
+        len(score.unsupported_proof_lean) for score in scores
+    )
+    unsupported_proof_lean_targets = tuple(
+        sorted(
+            {
+                target
+                for score in scores
+                for target in score.unsupported_proof_lean
+            }
+        )
+    )
 
     source_stale = source_freshness.stale_witness_count if source_freshness else 0
     source_missing = source_freshness.missing_source_label_count if source_freshness else 0
@@ -252,6 +312,10 @@ def classify_direct_port(
             source_missing=source_missing,
             source_deviations=source_deviations,
             source_unresolved_lean=source_unresolved_lean,
+            unsupported_proof_lean=unsupported_proof_lean,
+            unsupported_proof_lean_targets=unsupported_proof_lean_targets,
+            reviewed_reference_debt=len(reviewed_references),
+            reviewed_reference_targets=reviewed_reference_targets,
         )
 
     paired_reasons: list[str] = []
@@ -277,6 +341,10 @@ def classify_direct_port(
             reasons=tuple(paired_reasons),
             source_deviations=source_deviations,
             source_unresolved_lean=source_unresolved_lean,
+            unsupported_proof_lean=unsupported_proof_lean,
+            unsupported_proof_lean_targets=unsupported_proof_lean_targets,
+            reviewed_reference_debt=len(reviewed_references),
+            reviewed_reference_targets=reviewed_reference_targets,
         )
 
     if metadata_dirty:
@@ -298,6 +366,10 @@ def classify_direct_port(
             reasons=tuple(reasons),
             source_deviations=source_deviations,
             source_unresolved_lean=source_unresolved_lean,
+            unsupported_proof_lean=unsupported_proof_lean,
+            unsupported_proof_lean_targets=unsupported_proof_lean_targets,
+            reviewed_reference_debt=len(reviewed_references),
+            reviewed_reference_targets=reviewed_reference_targets,
         )
 
     if not build:
@@ -316,6 +388,10 @@ def classify_direct_port(
             reasons=("build not checked; rerun with --build for final completion",),
             source_deviations=source_deviations,
             source_unresolved_lean=source_unresolved_lean,
+            unsupported_proof_lean=unsupported_proof_lean,
+            unsupported_proof_lean_targets=unsupported_proof_lean_targets,
+            reviewed_reference_debt=len(reviewed_references),
+            reviewed_reference_targets=reviewed_reference_targets,
         )
 
     build_ok, build_reasons = build_status(
@@ -341,6 +417,10 @@ def classify_direct_port(
         reasons=build_reasons,
         source_deviations=source_deviations,
         source_unresolved_lean=source_unresolved_lean,
+        unsupported_proof_lean=unsupported_proof_lean,
+        unsupported_proof_lean_targets=unsupported_proof_lean_targets,
+        reviewed_reference_debt=len(reviewed_references),
+        reviewed_reference_targets=reviewed_reference_targets,
     )
 
 
@@ -395,9 +475,21 @@ def print_status(status: CompletionStatus) -> None:
         f"node_kinds={status.node_kind_issues} math={status.math_issues} "
         f"source_stale={status.source_stale} source_missing={status.source_missing} "
         f"source_deviations={status.source_deviations} "
-        f"source_unresolved_lean={status.source_unresolved_lean}"
+        f"source_unresolved_lean={status.source_unresolved_lean} "
+        f"unsupported_proof_lean={status.unsupported_proof_lean} "
+        f"reviewed_reference_debt={status.reviewed_reference_debt}"
     )
     print(f"  metrics: {details}")
+    if status.reviewed_reference_targets:
+        print(
+            "  reviewed reference targets: "
+            + ", ".join(status.reviewed_reference_targets)
+        )
+    if status.unsupported_proof_lean_targets:
+        print(
+            "  unsupported proof attachment targets: "
+            + ", ".join(status.unsupported_proof_lean_targets)
+        )
     if status.build_checked:
         build_label = "ok" if status.build_ok else "needs-attention"
         print(f"  build: {build_label}")
@@ -483,6 +575,14 @@ def main() -> int:
         action="store_true",
         help="Return exit code 1 unless every selected direct-port chapter is done and no selected chapters are untracked.",
     )
+    parser.add_argument(
+        "--require-metadata-clean",
+        action="store_true",
+        help=(
+            "Return exit code 1 unless every selected chapter is metadata-clean or done "
+            "and source freshness has no errors."
+        ),
+    )
     parser.set_defaults(native_warnings=None)
     args = parser.parse_args()
 
@@ -511,6 +611,9 @@ def main() -> int:
             selected_direct_ports,
             source_glob=config.tex_source_glob,
             source_map=config.lt_source_files,
+            source_aliases=source_aliases,
+            lean_target_aliases=dict(config.lt_lean_target_aliases),
+            unresolved_lean_targets=set(config.lt_unresolved_lean_targets),
         )
         if selected_direct_ports
         else ProjectFreshness((), ())
@@ -534,11 +637,15 @@ def main() -> int:
 
     counts = Counter(status.state for status in statuses)
     complete = report_complete(statuses) and not source_report.errors
+    metadata_clean = not source_report.errors and all(
+        status.state in {"metadata-clean", "done"} for status in statuses
+    )
 
     print(f"project root: {project_root}")
     print(f"chapter_root: {config.chapter_root}")
     print(f"build_checked: {'yes' if args.build else 'no'}")
     print(f"source_freshness_errors: {len(source_report.errors)}")
+    print(f"metadata_clean: {'yes' if metadata_clean else 'no'}")
     if args.build:
         print(
             "native_warnings: "
@@ -556,6 +663,8 @@ def main() -> int:
         print(f"source-freshness error: {error}")
 
     if args.require_complete and not complete:
+        return 1
+    if args.require_metadata_clean and not metadata_clean:
         return 1
     return 0
 

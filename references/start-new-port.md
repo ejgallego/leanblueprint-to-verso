@@ -27,6 +27,7 @@ harness, and vendor the upstream formalization as a submodule.
 ├── lakefile.lean
 ├── lean-toolchain
 ├── scripts/ci-pages.sh
+├── scripts/ci-post-build.sh
 └── .github/workflows/blueprint.yml
 ```
 
@@ -62,7 +63,8 @@ After the script finishes:
    `./blueprint/src/chapter/*.tex`, while others use a single file such as
    `./blueprint/src/chapter/main.tex`
 5. review `verso-harness.toml` and confirm that `harness.native_warnings` and
-   `harness.strict_external_code` match the intended warning policy for the repo
+   `harness.strict_external_code` match the intended warning policy for the repo;
+   `harness.max_missing_mathlib_modules` defaults to zero
 6. review `.github/workflows/blueprint.yml` and note that it is a thin caller
    pinned to the same `VersoBlueprint` ref declared in `lakefile.lean`
 7. create the first real source-backed chapter file under `chapter_root`
