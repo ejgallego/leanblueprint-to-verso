@@ -483,6 +483,14 @@ def main() -> int:
         action="store_true",
         help="Return exit code 1 unless every selected direct-port chapter is done and no selected chapters are untracked.",
     )
+    parser.add_argument(
+        "--require-metadata-clean",
+        action="store_true",
+        help=(
+            "Return exit code 1 unless every selected chapter is metadata-clean or done "
+            "and source freshness has no errors."
+        ),
+    )
     parser.set_defaults(native_warnings=None)
     args = parser.parse_args()
 
@@ -534,11 +542,15 @@ def main() -> int:
 
     counts = Counter(status.state for status in statuses)
     complete = report_complete(statuses) and not source_report.errors
+    metadata_clean = not source_report.errors and all(
+        status.state in {"metadata-clean", "done"} for status in statuses
+    )
 
     print(f"project root: {project_root}")
     print(f"chapter_root: {config.chapter_root}")
     print(f"build_checked: {'yes' if args.build else 'no'}")
     print(f"source_freshness_errors: {len(source_report.errors)}")
+    print(f"metadata_clean: {'yes' if metadata_clean else 'no'}")
     if args.build:
         print(
             "native_warnings: "
@@ -556,6 +568,8 @@ def main() -> int:
         print(f"source-freshness error: {error}")
 
     if args.require_complete and not complete:
+        return 1
+    if args.require_metadata_clean and not metadata_clean:
         return 1
     return 0
 

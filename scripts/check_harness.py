@@ -38,6 +38,10 @@ CI_VBP_OUTPUT_PATTERN = re.compile(
 )
 CI_CACHE_GUARD_PATTERN = re.compile(r"\bensure_dependency_cache\.py\b")
 CI_GENERATED_SITE_CHECK_PATTERN = re.compile(r"\bcheck_generated_site\.py\b")
+CI_METADATA_GATE_PATTERN = re.compile(
+    r"\bstatus_completion\.py[^\n]*--require-metadata-clean"
+)
+CI_PRE_BUILD_HOOK_PATTERN = re.compile(r"scripts/ci-pre-build\.sh")
 
 
 def parse_args() -> argparse.Namespace:
@@ -195,6 +199,24 @@ def main() -> int:
         script_text = script_path.read_text(encoding="utf-8")
         build_match = CI_VBP_BUILD_PATTERN.search(script_text)
         guard_match = CI_CACHE_GUARD_PATTERN.search(script_text)
+        metadata_gate_match = CI_METADATA_GATE_PATTERN.search(script_text)
+        pre_build_hook_match = CI_PRE_BUILD_HOOK_PATTERN.search(script_text)
+        if metadata_gate_match is None:
+            mismatches.append(
+                "scripts/ci-pages.sh must require metadata-clean direct-port chapters "
+                "before cache warming or build; run update_ci.py to refresh helper-owned CI files"
+            )
+        else:
+            for step_name, step_match in (
+                ("project pre-build hook", pre_build_hook_match),
+                ("dependency cache guard", guard_match),
+                ("site build", build_match),
+            ):
+                if step_match is not None and metadata_gate_match.start() > step_match.start():
+                    mismatches.append(
+                        "scripts/ci-pages.sh must run the metadata-clean status gate before "
+                        f"the {step_name}; run update_ci.py to refresh helper-owned CI files"
+                    )
         if build_match and (guard_match is None or guard_match.start() > build_match.start()):
             mismatches.append(
                 "scripts/ci-pages.sh must run the dependency cache guard before `lake exe vbp build`; "

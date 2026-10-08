@@ -67,6 +67,15 @@ class BootstrapTests(unittest.TestCase):
             )
 
             self.assertTrue((root / 'README.md').exists())
+            ci_pages_text = (root / 'scripts' / 'ci-pages.sh').read_text(encoding='utf-8')
+            self.assertIn(
+                'status_completion.py --project-root . --require-metadata-clean',
+                ci_pages_text,
+            )
+            self.assertLess(
+                ci_pages_text.index('status_completion.py --project-root . --require-metadata-clean'),
+                ci_pages_text.index('ensure_dependency_cache.py --project-root . --warm-cache'),
+            )
             workflow_text = (root / '.github' / 'workflows' / 'blueprint.yml').read_text(
                 encoding='utf-8'
             )

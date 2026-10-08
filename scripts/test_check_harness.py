@@ -100,6 +100,7 @@ def write_harness_project(
         "\n".join(
             [
                 "#!/usr/bin/env bash",
+                "python3 tools/verso-harness/scripts/status_completion.py --project-root . --require-metadata-clean",
                 "python3 tools/verso-harness/scripts/ensure_dependency_cache.py --project-root . --warm-cache",
                 "lake exe vbp build --output _out/site",
                 "python3 tools/verso-harness/scripts/check_generated_site.py --project-root . --site-dir _out/site/html-multi",
@@ -330,6 +331,57 @@ class CheckHarnessTests(unittest.TestCase):
             result = run_check(root)
             self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
             self.assertIn("dependency cache guard", result.stdout)
+
+    def test_check_harness_rejects_missing_metadata_clean_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_project(
+                root,
+                lean_toolchain="leanprover/lean4:v4.29.0",
+                verso_ref="v4.29.0",
+                math_lint_option="weak.verso.blueprint.math.lint",
+                warn_line_length_option="weak.verso.code.warnLineLength",
+                strict_external_code=True,
+                strict_external_code_option="weak.verso.blueprint.externalCode.strictResolve",
+                lake_strict_external_code=True,
+            )
+            script_path = root / "scripts" / "ci-pages.sh"
+            script_path.write_text(
+                script_path.read_text(encoding="utf-8").replace(
+                    "python3 tools/verso-harness/scripts/status_completion.py --project-root . --require-metadata-clean\n",
+                    "",
+                ),
+                encoding="utf-8",
+            )
+            result = run_check(root)
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("must require metadata-clean direct-port chapters", result.stdout)
+
+    def test_check_harness_rejects_metadata_gate_after_cache_warming(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_harness_project(
+                root,
+                lean_toolchain="leanprover/lean4:v4.29.0",
+                verso_ref="v4.29.0",
+                math_lint_option="weak.verso.blueprint.math.lint",
+                warn_line_length_option="weak.verso.code.warnLineLength",
+                strict_external_code=True,
+                strict_external_code_option="weak.verso.blueprint.externalCode.strictResolve",
+                lake_strict_external_code=True,
+            )
+            script_path = root / "scripts" / "ci-pages.sh"
+            script_text = script_path.read_text(encoding="utf-8")
+            gate = "python3 tools/verso-harness/scripts/status_completion.py --project-root . --require-metadata-clean\n"
+            script_text = script_text.replace(gate, "").replace(
+                "python3 tools/verso-harness/scripts/ensure_dependency_cache.py --project-root . --warm-cache\n",
+                "python3 tools/verso-harness/scripts/ensure_dependency_cache.py --project-root . --warm-cache\n"
+                + gate,
+            )
+            script_path.write_text(script_text, encoding="utf-8")
+            result = run_check(root)
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("before the dependency cache guard", result.stdout)
 
     def test_check_harness_rejects_stale_generated_site_smoke(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

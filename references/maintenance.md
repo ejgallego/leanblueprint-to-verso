@@ -16,7 +16,14 @@ For repo-level chapter completion status, use:
 ```bash
 python3 tools/verso-harness/scripts/status_completion.py --project-root .
 python3 tools/verso-harness/scripts/status_completion.py --project-root . --build
+python3 tools/verso-harness/scripts/status_completion.py --project-root . --require-metadata-clean
 ```
+
+The default report is informational. The metadata-clean option fails if source
+freshness has errors or any selected chapter is below `metadata-clean`; use it
+to find source-paired fidelity debt before spending time on cache warming or a
+site build. Generated `scripts/ci-pages.sh` runs this gate automatically
+before the project pre-build hook and all cache/build work.
 
 ## Routine Tasks
 
@@ -56,6 +63,8 @@ Pages workflow in `verso-blueprint` and is pinned to the same
 The generated `scripts/ci-pages.sh` invokes
 `lake exe vbp build --output _out/site`; it must not prebuild the Blueprint
 entry point with `lake build` or invoke the legacy `lake lean` generator path.
+It first requires all selected chapters to be `metadata-clean` or `done` and
+requires source freshness checks to have no errors.
 
 The generated README is a starting point for the consumer repo and remains
 project-owned after bootstrap. The helper should not rewrite it automatically

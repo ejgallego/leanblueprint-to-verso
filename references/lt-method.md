@@ -136,6 +136,17 @@ python3 tools/verso-harness/scripts/check_blueprint_node_kinds.py --project-root
 python3 tools/verso-harness/scripts/check_verso_math_delimiters.py --project-root . path/to/Chapter.lean
 ```
 
+Before the site build, run the repo-level static gate:
+
+```bash
+python3 tools/verso-harness/scripts/status_completion.py --project-root . --require-metadata-clean
+```
+
+The ordinary status report stays informational. With this option, source
+freshness errors or any selected chapter below `metadata-clean` fail the
+command. Generated `scripts/ci-pages.sh` runs the same gate before its project
+hook, dependency-cache warming, or build.
+
 Use `lt_audit.py --node-kinds --math-sanity` when you also want the focused
 chapter build, optional pages smoke test, the graph-visible node-kind check,
 and the conservative math-delimiter check.

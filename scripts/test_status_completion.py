@@ -166,6 +166,7 @@ class StatusCompletionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
         self.assertIn("--build", result.stdout)
         self.assertIn("--require-complete", result.stdout)
+        self.assertIn("--require-metadata-clean", result.stdout)
 
     def test_status_completion_reports_scope_and_state_transitions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -195,6 +196,73 @@ class StatusCompletionTests(unittest.TestCase):
             self.assertIn("[paired] DemoBlueprint/Chapters/Low.lean", result.stdout)
             self.assertIn("[unpaired] DemoBlueprint/Chapters/Unpaired.lean", result.stdout)
             self.assertIn("[untracked] DemoBlueprint/Chapters/Scratch.lean", result.stdout)
+
+    def test_require_metadata_clean_accepts_selected_clean_chapter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_project(root)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                    "--require-metadata-clean",
+                    "DemoBlueprint/Chapters/Clean.lean",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("metadata_clean: yes", result.stdout)
+            self.assertIn("[metadata-clean] DemoBlueprint/Chapters/Clean.lean", result.stdout)
+
+    def test_require_metadata_clean_rejects_selected_nonclean_chapter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_project(root)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                    "--require-metadata-clean",
+                    "DemoBlueprint/Chapters/Metadata.lean",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("metadata_clean: no", result.stdout)
+            self.assertIn("[lt-audited] DemoBlueprint/Chapters/Metadata.lean", result.stdout)
+
+    def test_require_metadata_clean_rejects_source_freshness_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.make_project(root)
+            (root / "blueprint" / "src" / "chapter" / "main.tex").unlink()
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                    "--require-metadata-clean",
+                    "DemoBlueprint/Chapters/Clean.lean",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("source_freshness_errors: 1", result.stdout)
+            self.assertIn("metadata_clean: no", result.stdout)
 
     def test_status_completion_can_require_build_clean_done_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
