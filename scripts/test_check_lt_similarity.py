@@ -102,6 +102,28 @@ class CheckLtSimilarityTests(unittest.TestCase):
         self.assertEqual(aliases["Demo.firstDeclaration"], {"Demo.shared_label"})
         self.assertEqual(aliases["Demo.secondDeclaration"], {"Demo.shared_label"})
 
+    def test_source_proof_declarations_do_not_become_statement_label_aliases(self) -> None:
+        source = r"""
+\begin{theorem}
+  \label{main-result}
+  \lean{Demo.main}
+  Alpha.
+\end{theorem}
+\begin{proof}
+  \lean{Demo.helper}
+  Alpha.
+\end{proof}
+""".strip()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = root / "blueprint" / "src" / "chapter"
+            chapter.mkdir(parents=True)
+            (chapter / "Demo.tex").write_text(source, encoding="utf-8")
+
+            aliases = source_lean_label_aliases(root, "blueprint/src/chapter/*.tex")
+
+        self.assertEqual(aliases, {"Demo.main": {"main-result"}})
+
     def test_metadata_and_markup_are_ignored(self) -> None:
         verso = verso_block(
             'Alpha {uses "foo"}[] {bpref "bar"}[] [Beta](https://example.com) and $`Gamma`$.'
@@ -149,6 +171,42 @@ Alpha.
         self.assertEqual(score.tex_lean, {"Demo.currentName"})
         self.assertEqual(score.missing_lean, set())
         self.assertEqual(score.extra_lean, set())
+
+    def test_proof_lean_attachment_is_source_matched_but_not_a_node_label(self) -> None:
+        verso = verso_block(
+            "By the supporting equalities, the result follows.",
+            header=':::proof "main-result/proof" (lean := "Demo.helper")',
+        )
+        tex = tex_block(
+            r"""\begin{proof}
+\lean{Demo.helper}
+By the supporting equalities, the result follows.
+\end{proof}"""
+        )
+
+        score = score_pair(verso, tex)
+
+        self.assertEqual(score.verso_lean, {"Demo.helper"})
+        self.assertEqual(score.tex_lean, {"Demo.helper"})
+        self.assertEqual(score.metadata_diff_count, 0)
+        self.assertEqual(score.label_regrounding_candidates, set())
+
+    def test_proof_lean_attachment_cannot_satisfy_statement_lean_metadata(self) -> None:
+        statement = verso_block(
+            "Alpha.", header=':::theorem "main-result" (lean := "Demo.helper")'
+        )
+        statement_tex = tex_block(
+            r"""\begin{theorem}
+\label{main-result}
+\lean{Demo.main}
+Alpha.
+\end{theorem}"""
+        )
+
+        score = score_pair(statement, statement_tex)
+
+        self.assertEqual(score.missing_lean, {"Demo.main"})
+        self.assertEqual(score.extra_lean, {"Demo.helper"})
 
     def test_unresolved_source_lean_target_is_recorded_without_requiring_link(self) -> None:
         verso = verso_block("Alpha.", header=':::theorem "demo"')

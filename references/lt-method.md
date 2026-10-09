@@ -34,6 +34,12 @@ Faithfulness`) are accepted aliases for the same workflow.
   similarity, and status checks accept that label when the maintained TeX
   source establishes the declaration-to-label mapping; keep the adjacent raw
   witness unchanged.
+- A statement-side `(lean := "...")` attachment identifies the declaration
+  formalizing that statement. A proof-side attachment names declarations that
+  support the proof; it does not replace the statement attachment or establish
+  proof completion by itself. Keep each attachment on the matching Verso block
+  and adjacent TeX witness so the LT audit checks statement and proof metadata
+  independently.
 - Translate TeX `\ref{...}` references to blueprint nodes as inline
   `{bpref "..."}[]` links when the prose is only pointing at the node and
   should not add a dependency edge.

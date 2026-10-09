@@ -140,6 +140,68 @@ Alpha.
             self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
             self.assertIn("extra lean ['Demo.foo']", result.stdout)
 
+    def test_cli_accepts_proof_attachment_authorized_by_its_proof_witness(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::theorem "foo" (lean := "Demo.foo")
+Alpha.
+:::
+```tex "foo"
+\\begin{theorem}
+\\label{foo}
+\\lean{Demo.foo}
+Alpha.
+\\end{theorem}
+```
+:::proof "foo/proof" (lean := "Demo.helper")
+By the supporting equality, the result follows.
+:::
+```tex "foo/proof" (slot := proof)
+\\begin{proof}
+\\lean{Demo.helper}
+By the supporting equality, the result follows.
+\\end{proof}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), '')
+
+    def test_cli_rejects_proof_attachment_borrowed_from_statement(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::theorem "foo" (lean := "Demo.foo, Demo.helper")
+Alpha.
+:::
+```tex "foo"
+\\begin{theorem}
+\\label{foo}
+\\lean{Demo.foo}
+Alpha.
+\\end{theorem}
+```
+:::proof "foo/proof" (lean := "Demo.helper")
+By the supporting equality, the result follows.
+:::
+```tex "foo/proof" (slot := proof)
+\\begin{proof}
+\\lean{Demo.helper}
+By the supporting equality, the result follows.
+\\end{proof}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            (root / 'Demo.lean').write_text(content, encoding='utf-8')
+            result = run_checker(root)
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("extra lean ['Demo.helper']", result.stdout)
+
     def test_cli_accepts_source_authorized_metadata(self) -> None:
         content = """#doc (Manual) "Demo" =>
 

@@ -130,7 +130,14 @@ class PairScore:
     def label_regrounding_candidates(self) -> set[str]:
         if self.block.kind != "verso" or self.verso_header_id is None:
             return set()
-        target_pool = self.tex_labels or self.tex_lean
+        # A proof-side `lean` attachment names supporting declarations. It does
+        # not own the Blueprint node label, so it must not be used as a fallback
+        # candidate for the proof block id.
+        target_pool = (
+            self.tex_labels
+            if self.verso_env_kind == "proof"
+            else self.tex_labels or self.tex_lean
+        )
         if not target_pool:
             return set()
         if self.verso_header_id in target_pool:
