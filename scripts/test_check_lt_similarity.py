@@ -221,7 +221,7 @@ Alpha.
         self.assertEqual(score.missing_lean, set())
         self.assertEqual(score.extra_lean, set())
 
-    def test_proof_source_lean_is_reported_as_unsupported_attachment_debt(self) -> None:
+    def test_proof_source_lean_requires_matching_proof_attachments(self) -> None:
         proof = verso_block(
             "We prove it.",
             header=":::proof",
@@ -232,18 +232,29 @@ Alpha.
         )
         score = score_pair(proof, tex)
         self.assertEqual(score.unsupported_proof_lean, {"Demo.firstProof", "Demo.secondProof"})
-        self.assertEqual(score.tex_lean, set())
-        self.assertEqual(score.missing_lean, set())
+        self.assertEqual(score.tex_lean, {"Demo.firstProof", "Demo.secondProof"})
+        self.assertEqual(score.missing_lean, {"Demo.firstProof", "Demo.secondProof"})
         self.assertEqual(score.unresolved_tex_lean, set())
-        self.assertEqual(score.pure_metadata_diff_count, 0)
+        self.assertEqual(score.pure_metadata_diff_count, 2)
 
-        attached_proof = verso_block(
+        partially_attached_proof = verso_block(
             "We prove it.",
             header=':::proof "demo-proof" (lean := "Demo.firstProof")',
         )
+        partial_score = score_pair(partially_attached_proof, tex)
+        self.assertEqual(partial_score.unsupported_proof_lean, {"Demo.secondProof"})
+        self.assertEqual(partial_score.missing_lean, {"Demo.secondProof"})
+        self.assertEqual(partial_score.extra_lean, set())
+
+        attached_proof = verso_block(
+            "We prove it.",
+            header=':::proof "demo-proof" (lean := "Demo.firstProof, Demo.secondProof")',
+        )
         attached_score = score_pair(attached_proof, tex)
-        self.assertEqual(attached_score.extra_lean, {"Demo.firstProof"})
-        self.assertEqual(attached_score.pure_metadata_diff_count, 1)
+        self.assertEqual(attached_score.unsupported_proof_lean, set())
+        self.assertEqual(attached_score.missing_lean, set())
+        self.assertEqual(attached_score.extra_lean, set())
+        self.assertEqual(attached_score.pure_metadata_diff_count, 0)
 
     def test_source_lean_use_resolves_to_selected_blueprint_label(self) -> None:
         verso = verso_block(

@@ -82,6 +82,8 @@ class CompletionStatus:
     source_missing: int = 0
     source_deviations: int = 0
     source_unresolved_lean: int = 0
+    # Kept for the maintenance controller's status schema; counts missing local
+    # proof attachments now that proof-side `lean` metadata is supported.
     unsupported_proof_lean: int = 0
     unsupported_proof_lean_targets: tuple[str, ...] = ()
     reviewed_reference_debt: int = 0

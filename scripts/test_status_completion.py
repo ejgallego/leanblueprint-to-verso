@@ -500,7 +500,7 @@ Alpha.
             self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
             self.assertIn("source_unresolved_lean=1", result.stdout)
 
-    def test_status_completion_reports_unsupported_proof_attachment_debt(self) -> None:
+    def test_status_completion_reports_missing_proof_attachment_debt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             chapter = Path("DemoBlueprint/Chapters/Proof.lean")
@@ -545,14 +545,67 @@ Alpha.
                 text=True,
                 check=False,
             )
-            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
-            self.assertIn("[metadata-clean]", result.stdout)
+            self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+            self.assertIn("[lt-audited]", result.stdout)
+            self.assertIn("metadata=1", result.stdout)
             self.assertIn("source_unresolved_lean=0", result.stdout)
             self.assertIn("unsupported_proof_lean=2", result.stdout)
             self.assertIn(
                 "unsupported proof attachment targets: Demo.firstProof, Demo.secondProof",
                 result.stdout,
             )
+
+    def test_status_completion_accepts_matching_proof_attachments(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            chapter = Path("DemoBlueprint/Chapters/Proof.lean")
+            source = (
+                r"\begin{proof}\lean{Demo.firstProof, Demo.secondProof}" "\n"
+                "We prove it.\n"
+                r"\end{proof}" "\n"
+            )
+            write_file(
+                root / "verso-harness.toml",
+                "\n".join(
+                    [
+                        'package_name = "DemoBlueprint"',
+                        'blueprint_main = "BlueprintMain"',
+                        'formalization_path = "Demo"',
+                        'chapter_root = "DemoBlueprint/Chapters"',
+                        'tex_source_glob = "blueprint/src/chapter/main.tex"',
+                        "",
+                        "[lt]",
+                        f'default_chapters = ["{chapter}"]',
+                        "",
+                    ]
+                ),
+            )
+            write_file(
+                root / chapter,
+                '#doc (Manual) "Proof" =>\n\n'
+                ':::proof "demo-proof" (lean := "Demo.firstProof, Demo.secondProof")\n'
+                'We prove it.\n:::\n'
+                '```tex\n' + source + '```\n',
+            )
+            write_file(root / "blueprint/src/chapter/main.tex", source)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / "status_completion.py"),
+                    "--project-root",
+                    str(root),
+                    "--require-metadata-clean",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("[metadata-clean]", result.stdout)
+            self.assertIn("metadata=0", result.stdout)
+            self.assertIn("unsupported_proof_lean=0", result.stdout)
+            self.assertNotIn("unsupported proof attachment targets:", result.stdout)
 
     def test_statement_source_lean_still_requires_verso_attachment(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
