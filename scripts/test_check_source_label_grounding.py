@@ -31,6 +31,49 @@ def write_config(root: Path, default_chapters: list[str]) -> None:
 
 
 class CheckSourceLabelGroundingTests(unittest.TestCase):
+    def test_proof_lean_attachment_is_not_used_as_a_node_label(self) -> None:
+        content = """#doc (Manual) "Demo" =>
+
+:::theorem "main-result" (lean := "Demo.main")
+Alpha.
+:::
+```tex "main-result"
+\\begin{theorem}
+\\label{main-result}
+\\lean{Demo.main}
+Alpha.
+\\end{theorem}
+```
+:::proof "main-result/proof" (lean := "Demo.helper")
+By the supporting equality, the result follows.
+:::
+```tex "main-result/proof" (slot := proof)
+\\begin{proof}
+\\lean{Demo.helper}
+By the supporting equality, the result follows.
+\\end{proof}
+```
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_config(root, ['Demo.lean'])
+            path = root / 'Demo.lean'
+            path.write_text(content, encoding='utf-8')
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT_DIR / 'check_source_label_grounding.py'),
+                    '--project-root',
+                    tmp,
+                ],
+                cwd=SCRIPT_DIR.parent,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertEqual(result.stdout.strip(), '')
+
     def test_cli_reports_misaligned_verso_id(self) -> None:
         content = """#doc (Manual) "Demo" =>
 

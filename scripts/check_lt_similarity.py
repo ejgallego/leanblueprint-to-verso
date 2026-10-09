@@ -48,6 +48,8 @@ class PairScore:
     verso_lean: set[str]
     tex_lean: set[str]
     unresolved_tex_lean: set[str]
+    # Legacy status name: now counts source proof targets without a matching
+    # local proof attachment, rather than proof targets the syntax cannot accept.
     unsupported_proof_lean: set[str]
     tex_labels: set[str]
     tex_refs: set[str]
@@ -130,7 +132,14 @@ class PairScore:
     def label_regrounding_candidates(self) -> set[str]:
         if self.block.kind != "verso" or self.verso_header_id is None:
             return set()
-        target_pool = self.tex_labels or self.tex_lean
+        # A proof-side `lean` attachment names supporting declarations. It does
+        # not own the Blueprint node label, so it must not be used as a fallback
+        # candidate for the proof block id.
+        target_pool = (
+            self.tex_labels
+            if self.verso_env_kind == "proof"
+            else self.tex_labels or self.tex_lean
+        )
         if not target_pool:
             return set()
         if self.verso_header_id in target_pool:
@@ -518,17 +527,18 @@ def score_pair(
         extract_tex_refs(tex_body), verso_bprefs | verso_refs, aliases
     )
     raw_tex_lean = extract_tex_lean(tex_body)
-    unsupported_proof_lean = (
-        raw_tex_lean
-        if extract_verso_env_kind(block.header, block.kind) == "proof"
-        else set()
-    )
-    supported_tex_lean = raw_tex_lean - unsupported_proof_lean
-    unresolved_tex_lean = supported_tex_lean & (unresolved_lean_targets or set())
     target_aliases = lean_target_aliases or {}
+    verso_lean = extract_verso_lean(block.header)
+    unresolved_tex_lean = raw_tex_lean & (unresolved_lean_targets or set())
     tex_lean = {
         target_aliases.get(target, target)
-        for target in supported_tex_lean - unresolved_tex_lean
+        for target in raw_tex_lean - unresolved_tex_lean
+    }
+    unsupported_proof_lean = {
+        target
+        for target in raw_tex_lean
+        if extract_verso_env_kind(block.header, block.kind) == "proof"
+        and target_aliases.get(target, target) not in verso_lean
     }
     return PairScore(
         block=block,
@@ -542,7 +552,7 @@ def score_pair(
         verso_bprefs=verso_bprefs,
         verso_refs=verso_refs,
         tex_uses=tex_uses,
-        verso_lean=extract_verso_lean(block.header),
+        verso_lean=verso_lean,
         tex_lean=tex_lean,
         unresolved_tex_lean=unresolved_tex_lean,
         unsupported_proof_lean=unsupported_proof_lean,

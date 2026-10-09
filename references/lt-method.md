@@ -34,6 +34,15 @@ Faithfulness`) are accepted aliases for the same workflow.
   similarity, and status checks accept that label when the maintained TeX
   source establishes the declaration-to-label mapping; keep the adjacent raw
   witness unchanged.
+- A statement-side `(lean := "...")` attachment identifies the declaration
+  formalizing that statement. A proof-side attachment names declarations that
+  support the proof; it does not replace the statement attachment or establish
+  proof completion by itself. Keep each attachment on the matching Verso block
+  and adjacent TeX witness so the LT audit checks statement and proof metadata
+  independently. The metadata audit reports a source proof target as debt while
+  it is absent from the local proof header. The compatibility metric
+  `unsupported_proof_lean` counts those missing local links; it no longer means
+  that proof-side `lean` syntax is unsupported.
 - Translate TeX `\ref{...}` references to blueprint nodes as inline
   `{bpref "..."}[]` links when the prose is only pointing at the node and
   should not add a dependency edge.
@@ -43,12 +52,6 @@ Faithfulness`) are accepted aliases for the same workflow.
   for LT. First pair the text with a source witness, then tighten
   `(lean := "...")`, `(uses := ...)`, inline `{uses "..."}[]` where it is
   natural in prose, and `{bpref "..."}[]`.
-- Current Verso Blueprint `:::proof` blocks do not accept `(lean := ...)`.
-  Preserve source proof-side `\lean{...}` names in the adjacent TeX witness;
-  the audits report them as unsupported proof-attachment debt instead of
-  requiring them in the proof header. A local `lean :=` on a proof remains a
-  metadata error. Statement attachments, `uses`, and witness freshness remain
-  fully checked.
 - Treat dependency metadata such as `uses_origin`, `uses_intent`, inline
   `origin` / `intent`, and `autoDeps` as curation or generated-dependency
   metadata, not as part of the first LT port. Source TeX `\uses{...}` edges
